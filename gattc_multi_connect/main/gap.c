@@ -1,13 +1,7 @@
 #include "gap.h"
 
-// static const char remote_device_name[3][20] = {"ESP_GATTS_DEMO_a", "ESP_GATTS_DEMO_b", "ESP_GATTS_DEMO_c"};
-
 static bool Isconnecting    = false;
 static bool stop_scan_done  = false;
-
-// static bool conn_device_a   = false;
-// static bool conn_device_b   = false;
-// static bool conn_device_c   = false;
 
 void start_scan(void)
 {
@@ -24,7 +18,7 @@ void handle_scan_result(esp_ble_gap_cb_param_t *scan_result) {
 
             // device found
             esp_log_buffer_hex(GATTC_TAG, scan_result->scan_rst.bda, 6);
-            ESP_LOGI(GATTC_TAG, "Searched Adv Data Len %d, Scan Response Len %d", scan_result->scan_rst.adv_data_len, scan_result->scan_rst.scan_rsp_len);
+            // ESP_LOGI(GATTC_TAG, "Searched Adv Data Len %d, Scan Response Len %d", scan_result->scan_rst.adv_data_len, scan_result->scan_rst.scan_rsp_len);
 
             uint8_t service_uuid[16];
             if (get_adv_service_uuid(scan_result->scan_rst.ble_adv, scan_result->scan_rst.adv_data_len, service_uuid)) {
@@ -37,7 +31,10 @@ void handle_scan_result(esp_ble_gap_cb_param_t *scan_result) {
                     break;
                 }
 
-                ESP_LOGI(GATTC_TAG, "Service UUID found !!!!.");
+                // service uuid is matching, start gattc
+                stop_scan_done = true;
+                esp_ble_gap_stop_scanning();
+                Isconnecting = true;
 
             } else {
                 ESP_LOGI(GATTC_TAG, "Service UUID not found in advertisement data.");
@@ -139,7 +136,6 @@ void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
 
         // one scan result has came
         esp_ble_gap_cb_param_t *scan_result = (esp_ble_gap_cb_param_t *)param;
-
         handle_scan_result(scan_result);
         
         break;
@@ -168,7 +164,7 @@ void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
 }
 
 void init_gap() {
-    //register the  callback function to the gap module
+    // register the  callback function to the gap module
     esp_err_t ret = esp_ble_gap_register_callback(esp_gap_cb);
     if (ret){
         ESP_LOGE(GATTC_TAG, "gap register error, error code = %x", ret);

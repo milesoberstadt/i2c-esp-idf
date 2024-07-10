@@ -36,4 +36,6 @@ static struct gattc_profile_inst gl_profile_tab[PROFILE_NUM] = {
 
 void init_gattc();
 
+void open_profile(esp_bd_addr_t bda, esp_ble_addr_type_t ble_addr_type);
+
 #endif // __GATTC_H__
