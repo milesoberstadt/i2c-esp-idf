@@ -11,12 +11,11 @@
 #include "esp_gatt_defs.h"
 #include "esp_gatt_common_api.h"
 #include "esp_log.h"
+#include "esp_check.h"
 
 #include "types.h"
 #include "constants.h"
 #include "enums.h"
-
-void esp_gattc_cb(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *param);
 
 /* One gatt-based profile one app_id and one gattc_if, this array will store the gattc_if returned by ESP_GATTS_REG_EVT */
 static struct gattc_profile_inst gl_profile_tab[PROFILE_NUM] = {
@@ -34,5 +33,7 @@ static struct gattc_profile_inst gl_profile_tab[PROFILE_NUM] = {
     },
 
 };
+
+void init_gattc();
 
 #endif // __GATTC_H__

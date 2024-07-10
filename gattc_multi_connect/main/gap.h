@@ -8,11 +8,12 @@
 
 #include "esp_log.h"
 #include "esp_gap_ble_api.h"
+#include "esp_check.h"
 
 #include "constants.h"
+#include "uuid16.h"
 
-void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param);
-
-void start_scan(void);
+void init_gap();
+void start_scan();
 
 #endif // __GAP_H__

@@ -2,7 +2,7 @@
 #define __CONSTANTS_H__
 
 #define GATTC_TAG "GATTC_MULTIPLE_CONNECTION"
-#define REMOTE_SERVICE_UUID        0x00FF
+#define REMOTE_SERVICE_UUID        "19b10000-e8f2-537e-4f6c-d104768a1214"
 #define REMOTE_NOTIFY_CHAR_UUID    0xFF01
 
 /* register three profiles, each profile corresponds to one connection,

@@ -30,3 +30,12 @@ void esp_gattc_cb(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_ga
         }
     } while (0);
 }
+
+void init_gattc() {
+    //register the callback function to the gattc module
+    esp_err_t ret = esp_ble_gattc_register_callback(esp_gattc_cb);
+    if(ret){
+        ESP_LOGE(GATTC_TAG, "gattc register error, error code = %x", ret);
+        return;
+    }
+}

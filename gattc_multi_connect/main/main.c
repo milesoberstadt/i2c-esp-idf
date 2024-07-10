@@ -4,8 +4,6 @@
  * SPDX-License-Identifier: Unlicense OR CC0-1.0
  */
 
-
-
 /****************************************************************************
 *
 * This file is for gatt client. It can scan ble device, connect multiple devices,
@@ -26,11 +24,8 @@
 #include "nvs_flash.h"
 
 #include "esp_bt.h"
-#include "esp_gap_ble_api.h"
 #include "esp_gattc_api.h"
-#include "esp_gatt_defs.h"
 #include "esp_bt_main.h"
-#include "esp_gatt_common_api.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 
@@ -38,16 +33,6 @@
 #include "constants.h"
 #include "gap.h"
 #include "gattc.h"
-#include "devices.h"
-
-static esp_ble_scan_params_t ble_scan_params = {
-    .scan_type              = BLE_SCAN_TYPE_ACTIVE,
-    .own_addr_type          = BLE_ADDR_TYPE_PUBLIC,
-    .scan_filter_policy     = BLE_SCAN_FILTER_ALLOW_ALL,
-    .scan_interval          = 0x50,
-    .scan_window            = 0x30,
-    .scan_duplicate         = BLE_SCAN_DUPLICATE_DISABLE
-};
 
 void app_main(void)
 {
@@ -85,37 +70,29 @@ void app_main(void)
         return;
     }
 
-    //register the  callback function to the gap module
-    ret = esp_ble_gap_register_callback(esp_gap_cb);
-    if (ret){
-        ESP_LOGE(GATTC_TAG, "gap register error, error code = %x", ret);
-        return;
-    }
+    init_gap();
+    init_gattc();
 
-    //register the callback function to the gattc module
-    ret = esp_ble_gattc_register_callback(esp_gattc_cb);
-    if(ret){
-        ESP_LOGE(GATTC_TAG, "gattc register error, error code = %x", ret);
-        return;
-    }
+    start_scan();
 
-    ret = esp_ble_gattc_app_register(PROFILE_A_APP_ID);
-    if (ret){
-        ESP_LOGE(GATTC_TAG, "gattc app register error, error code = %x", ret);
-        return;
-    }
+    // ret = esp_ble_gattc_app_register(PROFILE_A_APP_ID);
+    // if (ret){
+    //     ESP_LOGE(GATTC_TAG, "gattc app register error, error code = %x", ret);
+    //     return;
+    // }
 
-    ret = esp_ble_gattc_app_register(PROFILE_B_APP_ID);
-    if (ret){
-        ESP_LOGE(GATTC_TAG, "gattc app register error, error code = %x", ret);
-        return;
-    }
+    // ret = esp_ble_gattc_app_register(PROFILE_B_APP_ID);
+    // if (ret){
+    //     ESP_LOGE(GATTC_TAG, "gattc app register error, error code = %x", ret);
+    //     return;
+    // }
 
-    ret = esp_ble_gattc_app_register(PROFILE_C_APP_ID);
-    if (ret){
-        ESP_LOGE(GATTC_TAG, "gattc app register error, error code = %x", ret);
-        return;
-    }
+    // ret = esp_ble_gattc_app_register(PROFILE_C_APP_ID);
+    // if (ret){
+    //     ESP_LOGE(GATTC_TAG, "gattc app register error, error code = %x", ret);
+    //     return;
+    // }
+
     ret = esp_ble_gatt_set_local_mtu(200);
     if (ret){
         ESP_LOGE(GATTC_TAG, "set local  MTU failed, error code = %x", ret);
