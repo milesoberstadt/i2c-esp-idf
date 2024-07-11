@@ -18,8 +18,10 @@ BLECharacteristic accelCharacterictic(ACCEL_UUID, BLERead | BLEWrite, 100);
 LSM6DS3 myIMU(I2C_MODE, 0x6A);    //I2C device address 0x6A
 
 void setup() {
-  Serial.begin(9600);
-  while (!Serial);  
+
+  pinMode(LED_BUILTIN, OUTPUT);
+  
+  Serial.begin(9600);  
 
   if (myIMU.begin() != 0) {
       Serial.println("IMU error");
@@ -59,6 +61,8 @@ void loop() {
 
     while (central.connected()) {
 
+      digitalWrite(LED_BUILTIN, LOW);
+
       char gyro[100];
       sprintf(gyro, "%.2f;%.2f;%.2f", myIMU.readFloatGyroX(), myIMU.readFloatGyroY(),  myIMU.readFloatGyroZ());
       gyroCharacteristic.writeValue(gyro);
@@ -74,5 +78,8 @@ void loop() {
     }
     
     Serial.println("* Disconnected to central device!");
+  } else {
+    int status = digitalRead(LED_BUILTIN);
+    digitalWrite(LED_BUILTIN, !status);
   }
 }

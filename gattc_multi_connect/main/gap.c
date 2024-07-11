@@ -8,7 +8,7 @@ static esp_ble_scan_params_t ble_scan_params = {
     .scan_filter_policy     = BLE_SCAN_FILTER_ALLOW_ALL,
     .scan_interval          = 0x50,
     .scan_window            = 0x30,
-    .scan_duplicate         = BLE_SCAN_DUPLICATE_DISABLE
+    .scan_duplicate         = BLE_SCAN_DUPLICATE_ENABLE
 };
 
 void start_scan(void)
@@ -55,6 +55,7 @@ void handle_scan_result(esp_ble_gap_cb_param_t *scan_result) {
             break;
         case ESP_GAP_SEARCH_INQ_CMPL_EVT:
             // scan finished
+            ESP_LOGI(GAP_TAG, "SCAN COMPLETED");
             break;
         default:
             break;
