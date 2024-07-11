@@ -14,6 +14,8 @@
 #include "uuid128.h"
 #include "gattc.h"
 
+#define GAP_TAG "ESP32_MCBC_GAP"
+
 void init_gap();
 void start_scan();
 

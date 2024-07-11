@@ -16,6 +16,9 @@
 #include "types.h"
 #include "constants.h"
 #include "gap.h"
+#include "uuid128.h"
+
+#define GATTC_TAG "ESP32_MCBC_GATTC"
 
 void init_gattc();
 

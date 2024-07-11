@@ -4,13 +4,8 @@
 #include "esp_bt_defs.h"
 #include "esp_gatt_defs.h"
 
-#define GATTC_TAG "ESP32_MULTI_CONNECT_BLE_CLIENT"
-
-/* register three profiles, each profile corresponds to one connection,
-   which makes it easy to handle each connection event */
 #define PROFILE_NUM 3
 #define INVALID_HANDLE   0
-
 
 #define REMOTE_NOTIFY_CHAR_UUID    0xFF01
 
@@ -25,6 +20,7 @@ static esp_bt_uuid_t remote_service_uuid = {
         0xd1, 0x04, 0x76, 0x8a, 0x12, 0x14}},
 };
 
+// 31d31ed5-aa9b-4325-b011-25caa3765c2a
 static esp_bt_uuid_t remote_gyro_uuid = {
     .len = ESP_UUID_LEN_128,
     .uuid = {.uuid128 = {
@@ -35,6 +31,7 @@ static esp_bt_uuid_t remote_gyro_uuid = {
         0x25, 0xca, 0xa3, 0x76, 0x5c, 0x2a}},
 };
 
+// bcd6dfbe-0c7b-4530-a5b3-ecd2ed69ff4f
 static esp_bt_uuid_t remote_accel_uuid = {
     .len = ESP_UUID_LEN_128,
     .uuid = {.uuid128 = {

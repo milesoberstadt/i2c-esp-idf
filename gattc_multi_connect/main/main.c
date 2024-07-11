@@ -34,6 +34,8 @@
 #include "gap.h"
 #include "gattc.h"
 
+#define MAIN_TAG "ESP32_MULTI_CONNECT_BLE_CLIENT"
+
 void app_main(void)
 {
     esp_err_t ret = nvs_flash_init();
@@ -48,55 +50,36 @@ void app_main(void)
     esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
     ret = esp_bt_controller_init(&bt_cfg);
     if (ret) {
-        ESP_LOGE(GATTC_TAG, "%s initialize controller failed: %s", __func__, esp_err_to_name(ret));
+        ESP_LOGE(MAIN_TAG, "%s initialize controller failed: %s", __func__, esp_err_to_name(ret));
         return;
     }
 
     ret = esp_bt_controller_enable(ESP_BT_MODE_BLE);
     if (ret) {
-        ESP_LOGE(GATTC_TAG, "%s enable controller failed: %s", __func__, esp_err_to_name(ret));
+        ESP_LOGE(MAIN_TAG, "%s enable controller failed: %s", __func__, esp_err_to_name(ret));
         return;
     }
 
     ret = esp_bluedroid_init();
     if (ret) {
-        ESP_LOGE(GATTC_TAG, "%s init bluetooth failed: %s", __func__, esp_err_to_name(ret));
+        ESP_LOGE(MAIN_TAG, "%s init bluetooth failed: %s", __func__, esp_err_to_name(ret));
         return;
     }
 
     ret = esp_bluedroid_enable();
     if (ret) {
-        ESP_LOGE(GATTC_TAG, "%s enable bluetooth failed: %s", __func__, esp_err_to_name(ret));
+        ESP_LOGE(MAIN_TAG, "%s enable bluetooth failed: %s", __func__, esp_err_to_name(ret));
         return;
     }
 
     init_gap();
     init_gattc();
 
-    start_scan();
-
-    // ret = esp_ble_gattc_app_register(PROFILE_A_APP_ID);
-    // if (ret){
-    //     ESP_LOGE(GATTC_TAG, "gattc app register error, error code = %x", ret);
-    //     return;
-    // }
-
-    // ret = esp_ble_gattc_app_register(PROFILE_B_APP_ID);
-    // if (ret){
-    //     ESP_LOGE(GATTC_TAG, "gattc app register error, error code = %x", ret);
-    //     return;
-    // }
-
-    // ret = esp_ble_gattc_app_register(PROFILE_C_APP_ID);
-    // if (ret){
-    //     ESP_LOGE(GATTC_TAG, "gattc app register error, error code = %x", ret);
-    //     return;
-    // }
-
     ret = esp_ble_gatt_set_local_mtu(200);
     if (ret){
-        ESP_LOGE(GATTC_TAG, "set local  MTU failed, error code = %x", ret);
+        ESP_LOGE(MAIN_TAG, "set local  MTU failed, error code = %x", ret);
     }
 
+    start_scan();
 
 }

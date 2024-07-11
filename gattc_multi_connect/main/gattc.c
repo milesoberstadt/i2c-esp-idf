@@ -36,77 +36,87 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
         return;
     }
 
+    char DEVICE_TAG[16];
+    snprintf(DEVICE_TAG, sizeof(DEVICE_TAG), "DEVICE_%d", idx);
+
     esp_ble_gattc_cb_param_t *p_data = (esp_ble_gattc_cb_param_t *)param;
 
     switch (event) {
     case ESP_GATTC_REG_EVT:
-        ESP_LOGI(GATTC_TAG, "REG_EVT for idx %d", idx);
+        ESP_LOGI(DEVICE_TAG, "Device registered");
         break;
     /* one device connect successfully, all profiles callback function will get the ESP_GATTC_CONNECT_EVT,
      so must compare the mac address to check which device is connected, so it is a good choice to use ESP_GATTC_OPEN_EVT. */
     case ESP_GATTC_CONNECT_EVT:
         break;
     case ESP_GATTC_OPEN_EVT:
+
         if (p_data->open.status != ESP_GATT_OK){
-            ESP_LOGE(GATTC_TAG, "connect device %d failed, status %d", idx, p_data->open.status);
+            ESP_LOGE(DEVICE_TAG, "connection failed, status %d", p_data->open.status);
             profiles[idx].connected = false;
             profiles[idx].discovered = false;
             start_scan();
             break;
         }
+
         memcpy(profiles[idx].remote_bda, p_data->open.remote_bda, 6);
         profiles[idx].conn_id = p_data->open.conn_id;
         profiles[idx].connected = true;
-        ESP_LOGI(GATTC_TAG, "DEVICE %d CONNECTED SUCCESSFULLY", idx);
-        start_scan();
 
-        ESP_LOGI(GATTC_TAG, "ESP_GATTC_OPEN_EVT conn_id %d, if %d, status %d, mtu %d", p_data->open.conn_id, gattc_if, p_data->open.status, p_data->open.mtu);
-        ESP_LOGI(GATTC_TAG, "REMOTE BDA:");
-        esp_log_buffer_hex(GATTC_TAG, p_data->open.remote_bda, sizeof(esp_bd_addr_t));
+        ESP_LOGI(DEVICE_TAG, "DEVICE CONNECTED SUCCESSFULLY");
+        ESP_LOGI(DEVICE_TAG, "conn_id %d, if %d, status %d, mtu %d", p_data->open.conn_id, gattc_if, p_data->open.status, p_data->open.mtu);
+        
         esp_err_t mtu_ret = esp_ble_gattc_send_mtu_req (gattc_if, p_data->open.conn_id);
         if (mtu_ret){
-            ESP_LOGE(GATTC_TAG, "config MTU error, error code = %x", mtu_ret);
+            ESP_LOGE(DEVICE_TAG, "config MTU error, error code = %x", mtu_ret);
         }
+
+        start_scan();
+
         break;
     case ESP_GATTC_CFG_MTU_EVT:
 
         if (param->cfg_mtu.status != ESP_GATT_OK){
-            ESP_LOGE(GATTC_TAG,"Config mtu failed");
+            ESP_LOGE(DEVICE_TAG,"Config mtu failed");
         }
 
-        ESP_LOGI(GATTC_TAG, "MTU EVT : Status %d, MTU %d, conn_id %d", param->cfg_mtu.status, param->cfg_mtu.mtu, param->cfg_mtu.conn_id);
+        ESP_LOGI(DEVICE_TAG, "mut set : Status %d, MTU %d, conn_id %d", param->cfg_mtu.status, param->cfg_mtu.mtu, param->cfg_mtu.conn_id);
 
-        ESP_LOGI(GATTC_TAG, "search service for idx %d", idx);
-        esp_log_buffer_hex(GATTC_TAG, remote_service_uuid.uuid.uuid128, ESP_UUID_LEN_128);
+        ESP_LOGI(DEVICE_TAG, "Looking for services...");
         esp_err_t ret = esp_ble_gattc_search_service(
             gattc_if, 
             param->cfg_mtu.conn_id, 
-            &remote_service_uuid
+            // todo : restore remote service uuid
+            NULL// &remote_service_uuid
         );
         if (ret){
-            ESP_LOGE(GATTC_TAG, "search service failed, error status = %x", ret);
+            ESP_LOGE(DEVICE_TAG, "search service failed, error status = %x", ret);
         }
 
         break;
     case ESP_GATTC_SEARCH_RES_EVT: {
-        ESP_LOGI(GATTC_TAG, "SEARCH RES: conn_id = %x is primary service %d", p_data->search_res.conn_id, p_data->search_res.is_primary);
-        ESP_LOGI(GATTC_TAG, "start handle %d end handle %d current handle value %d", p_data->search_res.start_handle, p_data->search_res.end_handle, p_data->search_res.srvc_id.inst_id);
+        // ESP_LOGI(DEVICE_TAG, "Service search result : conn_id = %x is primary service %d", p_data->search_res.conn_id, p_data->search_res.is_primary);
+        // ESP_LOGI(DEVICE_TAG, "start handle %d end handle %d current handle value %d", p_data->search_res.start_handle, p_data->search_res.end_handle, p_data->search_res.srvc_id.inst_id);
 
-        if (p_data->search_res.srvc_id.uuid.len == ESP_UUID_LEN_128 && p_data->search_res.srvc_id.uuid.uuid.uuid128 == remote_service_uuid.uuid.uuid128) {
-            // ESP_LOGI(GATTC_TAG, "UUID128: %x", p_data->search_res.srvc_id.uuid.uuid.uuid128);
-            ESP_LOGI(GATTC_TAG, "Service matched at idx %d", idx);
+        uint8_t reversed_uuid[ESP_UUID_LEN_128];
+        reverse_uuid(p_data->search_res.srvc_id.uuid.uuid.uuid128, reversed_uuid);    
+
+        if (p_data->search_res.srvc_id.uuid.len == ESP_UUID_LEN_128 && compare_uuid(remote_service_uuid.uuid.uuid128, reversed_uuid)) {
+            ESP_LOGI(DEVICE_TAG, "MATCHING SERVICE FOUND");
             profiles[idx].service_start_handle = p_data->search_res.start_handle;
             profiles[idx].service_end_handle = p_data->search_res.end_handle;
             profiles[idx].discovered = true;
+        } else {
+            ESP_LOGI(DEVICE_TAG, "Service found, but UUID don't match");
         }
 
         break;
     }
     case ESP_GATTC_SEARCH_CMPL_EVT:
-        ESP_LOGI(GATTC_TAG, "SEARCH CMPL: conn_id = %x, status %d", p_data->search_cmpl.conn_id, p_data->search_cmpl.status);
+        ESP_LOGI(DEVICE_TAG, "Service search completed: conn_id = %x, status %d", p_data->search_cmpl.conn_id, p_data->search_cmpl.status);
 
         if (p_data->search_cmpl.status != ESP_GATT_OK){
-            ESP_LOGE(GATTC_TAG, "search service failed, error status = %x", p_data->search_cmpl.status);
+            ESP_LOGE(DEVICE_TAG, "search service failed, error status = %x", p_data->search_cmpl.status);
             break;
         }
         if (profiles[idx].discovered){
@@ -119,13 +129,17 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
                                                                      INVALID_HANDLE,
                                                                      &count);
             if (status != ESP_GATT_OK){
-                ESP_LOGE(GATTC_TAG, "esp_ble_gattc_get_attr_count error");
+                ESP_LOGE(DEVICE_TAG, "esp_ble_gattc_get_attr_count error");
                 break;
             }
+
+            ESP_LOGI(DEVICE_TAG, "Characteritics found : %d", count);
+
             // if (count > 0) {
+
             //     char_elem_result_a = (esp_gattc_char_elem_t *)malloc(sizeof(esp_gattc_char_elem_t) * count);
             //     if (!char_elem_result_a){
-            //         ESP_LOGE(GATTC_TAG, "gattc no mem");
+            //         ESP_LOGE(DEVICE_TAG, "gattc no mem");
             //         break;
             //     }else {
             //         status = esp_ble_gattc_get_char_by_uuid( gattc_if,
@@ -136,7 +150,7 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
             //                                                  char_elem_result_a,
             //                                                  &count);
             //         if (status != ESP_GATT_OK){
-            //             ESP_LOGE(GATTC_TAG, "esp_ble_gattc_get_char_by_uuid error");
+            //             ESP_LOGE(DEVICE_TAG, "esp_ble_gattc_get_char_by_uuid error");
             //             free(char_elem_result_a);
             //             char_elem_result_a = NULL;
             //             break;
@@ -151,14 +165,17 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
             //     /* free char_elem_result */
             //     free(char_elem_result_a);
             //     char_elem_result_a = NULL;
-            // }else {
-            //     ESP_LOGE(GATTC_TAG, "no char found");
+
+            // } else {
+
+            //     ESP_LOGE(DEVICE_TAG, "no char found");
+
             // }
         }
         break;
     case ESP_GATTC_REG_FOR_NOTIFY_EVT: {
         if (p_data->reg_for_notify.status != ESP_GATT_OK){
-            ESP_LOGE(GATTC_TAG, "reg notify failed, error status =%x", p_data->reg_for_notify.status);
+            ESP_LOGE(DEVICE_TAG, "reg notify failed, error status =%x", p_data->reg_for_notify.status);
             break;
         }
         uint16_t count = 0;
@@ -171,12 +188,12 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
                                                                      profiles[idx].char_handle,
                                                                      &count);
         if (ret_status != ESP_GATT_OK){
-            ESP_LOGE(GATTC_TAG, "esp_ble_gattc_get_attr_count error");
+            ESP_LOGE(DEVICE_TAG, "esp_ble_gattc_get_attr_count error");
         }
         // if (count > 0){
         //     descr_elem_result_a = (esp_gattc_descr_elem_t *)malloc(sizeof(esp_gattc_descr_elem_t) * count);
         //     if (!descr_elem_result_a){
-        //         ESP_LOGE(GATTC_TAG, "malloc error, gattc no mem");
+        //         ESP_LOGE(DEVICE_TAG, "malloc error, gattc no mem");
         //     }else{
         //         ret_status = esp_ble_gattc_get_descr_by_char_handle( gattc_if,
         //                                                              profiles[idx].conn_id,
@@ -185,7 +202,7 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
         //                                                              descr_elem_result_a,
         //                                                              &count);
         //         if (ret_status != ESP_GATT_OK){
-        //             ESP_LOGE(GATTC_TAG, "esp_ble_gattc_get_descr_by_char_handle error");
+        //             ESP_LOGE(DEVICE_TAG, "esp_ble_gattc_get_descr_by_char_handle error");
         //         }
 
         //         /* Every char has only one descriptor in our 'ESP_GATTS_DEMO' demo, so we used first 'descr_elem_result' */
@@ -200,7 +217,7 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
         //         }
 
         //         if (ret_status != ESP_GATT_OK){
-        //             ESP_LOGE(GATTC_TAG, "esp_ble_gattc_write_char_descr error");
+        //             ESP_LOGE(DEVICE_TAG, "esp_ble_gattc_write_char_descr error");
         //         }
 
         //         /* free descr_elem_result */
@@ -208,20 +225,20 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
         //     }
         // }
         // else{
-        //     ESP_LOGE(GATTC_TAG, "decsr not found");
+        //     ESP_LOGE(DEVICE_TAG, "decsr not found");
         // }
         break;
     }
     case ESP_GATTC_NOTIFY_EVT:
-        ESP_LOGI(GATTC_TAG, "ESP_GATTC_NOTIFY_EVT, Receive notify value:");
-        esp_log_buffer_hex(GATTC_TAG, p_data->notify.value, p_data->notify.value_len);
+        ESP_LOGI(DEVICE_TAG, "ESP_GATTC_NOTIFY_EVT, Receive notify value:");
+        esp_log_buffer_hex(DEVICE_TAG, p_data->notify.value, p_data->notify.value_len);
         break;
     case ESP_GATTC_WRITE_DESCR_EVT:
         if (p_data->write.status != ESP_GATT_OK){
-            ESP_LOGE(GATTC_TAG, "write descr failed, error status = %x", p_data->write.status);
+            ESP_LOGE(DEVICE_TAG, "write descr failed, error status = %x", p_data->write.status);
             break;
         }
-        ESP_LOGI(GATTC_TAG, "write descr success");
+        ESP_LOGI(DEVICE_TAG, "write descr success");
         uint8_t write_char_data[35];
         for (int i = 0; i < sizeof(write_char_data); ++i)
         {
@@ -237,21 +254,21 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
         break;
     case ESP_GATTC_WRITE_CHAR_EVT:
         if (p_data->write.status != ESP_GATT_OK){
-            ESP_LOGE(GATTC_TAG, "write char failed, error status = %x", p_data->write.status);
+            ESP_LOGE(DEVICE_TAG, "write char failed, error status = %x", p_data->write.status);
         }else{
-            ESP_LOGI(GATTC_TAG, "write char success");
+            ESP_LOGI(DEVICE_TAG, "write char success");
         }
         break;
     case ESP_GATTC_SRVC_CHG_EVT: {
         esp_bd_addr_t bda;
         memcpy(bda, p_data->srvc_chg.remote_bda, sizeof(esp_bd_addr_t));
-        ESP_LOGI(GATTC_TAG, "ESP_GATTC_SRVC_CHG_EVT, bd_addr:%08x%04x",(bda[0] << 24) + (bda[1] << 16) + (bda[2] << 8) + bda[3],
+        ESP_LOGI(DEVICE_TAG, "ESP_GATTC_SRVC_CHG_EVT, bd_addr:%08x%04x",(bda[0] << 24) + (bda[1] << 16) + (bda[2] << 8) + bda[3],
                  (bda[4] << 8) + bda[5]);
         break;
     }
     case ESP_GATTC_DISCONNECT_EVT:
         if (memcmp(p_data->disconnect.remote_bda, profiles[idx].remote_bda, 6) == 0){
-            ESP_LOGI(GATTC_TAG, "device %d disconnect", idx);
+            ESP_LOGI(DEVICE_TAG, "DEVICE DISCONNECTED");
             profiles[idx].connected = false;
             profiles[idx].discovered = false;
         }
