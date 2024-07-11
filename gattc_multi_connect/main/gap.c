@@ -1,14 +1,22 @@
 #include "gap.h"
 
-static bool Isconnecting    = false;
-static bool stop_scan_done  = false;
+static bool is_scanning = false;
+
+static esp_ble_scan_params_t ble_scan_params = {
+    .scan_type              = BLE_SCAN_TYPE_ACTIVE,
+    .own_addr_type          = BLE_ADDR_TYPE_PUBLIC,
+    .scan_filter_policy     = BLE_SCAN_FILTER_ALLOW_ALL,
+    .scan_interval          = 0x50,
+    .scan_window            = 0x30,
+    .scan_duplicate         = BLE_SCAN_DUPLICATE_DISABLE
+};
 
 void start_scan(void)
 {
-    stop_scan_done = false;
-    Isconnecting = false;
-    uint32_t duration = 30;
-    esp_ble_gap_start_scanning(duration);
+    esp_err_t scan_ret = esp_ble_gap_set_scan_params(&ble_scan_params);
+    if (scan_ret){
+        ESP_LOGE(GATTC_TAG, "set scan params error, error code = %x", scan_ret);
+    }
 }
 
 void handle_scan_result(esp_ble_gap_cb_param_t *scan_result) {
@@ -16,77 +24,30 @@ void handle_scan_result(esp_ble_gap_cb_param_t *scan_result) {
     switch (scan_result->scan_rst.search_evt) {
         case ESP_GAP_SEARCH_INQ_RES_EVT:
 
-            // device found
-            esp_log_buffer_hex(GATTC_TAG, scan_result->scan_rst.bda, 6);
+            // esp_log_buffer_hex(GATTC_TAG, scan_result->scan_rst.bda, 6);
             // ESP_LOGI(GATTC_TAG, "Searched Adv Data Len %d, Scan Response Len %d", scan_result->scan_rst.adv_data_len, scan_result->scan_rst.scan_rsp_len);
 
-            uint8_t service_uuid[16];
+            uint8_t service_uuid[ESP_UUID_LEN_128];
             if (get_adv_service_uuid(scan_result->scan_rst.ble_adv, scan_result->scan_rst.adv_data_len, service_uuid)) {
-                uint8_t target_uuid[16];
-                uuid_str_to_bytes(REMOTE_SERVICE_UUID, target_uuid);
+
+                ESP_LOGI(GATTC_TAG, "Service UUID found in advertisement data:");
+                esp_log_buffer_hex(GATTC_TAG, service_uuid, ESP_UUID_LEN_128);
                 
-                if (!compare_uuid(service_uuid, target_uuid)) {
-                    // this is not the service that we are looking for
+                if (!compare_uuid(remote_service_uuid.uuid.uuid128, service_uuid)) {
+                    ESP_LOGI(GATTC_TAG, "Service UUID not matching with the remote service UUID.");
                     // todo : stop scanning this device
                     break;
                 }
 
+                ESP_LOGI(GATTC_TAG, "Service UUID matching with the remote service UUID.");
+
                 // service uuid is matching, start gattc
-                stop_scan_done = true;
                 esp_ble_gap_stop_scanning();
-                Isconnecting = true;
+                is_scanning = false;
 
-            } else {
-                ESP_LOGI(GATTC_TAG, "Service UUID not found in advertisement data.");
-            }
+                open_profile(scan_result->scan_rst.bda, scan_result->scan_rst.ble_addr_type);
 
-            ESP_LOGI(GATTC_TAG, "--------");
-
-            return;
-
-            if (Isconnecting){
-                break;
-            }
-            // if (conn_device_a && conn_device_b && conn_device_c && !stop_scan_done){
-            //     stop_scan_done = true;
-            //     esp_ble_gap_stop_scanning();
-            //     ESP_LOGI(GATTC_TAG, "all devices are connected");
-            //     break;
-            // }
-            // if (adv_service_uuid != NULL) {
-
-            //     if (strlen(remote_device_name[0]) == adv_service_uuid && strncmp((char *)adv_service_uuid, remote_device_name[0], adv_service_uuid_len) == 0) {
-            //         if (conn_device_a == false) {
-            //             conn_device_a = true;
-            //             ESP_LOGI(GATTC_TAG, "Searched device %s", remote_device_name[0]);
-            //             esp_ble_gap_stop_scanning();
-            //             // esp_ble_gattc_open(gl_profile_tab[PROFILE_A_APP_ID].gattc_if, scan_result->scan_rst.bda, scan_result->scan_rst.ble_addr_type, true);
-            //             Isconnecting = true;
-            //         }
-            //         break;
-            //     }
-            //     else if (strlen(remote_device_name[1]) == adv_service_uuid_len && strncmp((char *)adv_service_uuid, remote_device_name[1], adv_service_uuid_len) == 0) {
-            //         if (conn_device_b == false) {
-            //             conn_device_b = true;
-            //             ESP_LOGI(GATTC_TAG, "Searched device %s", remote_device_name[1]);
-            //             esp_ble_gap_stop_scanning();
-            //             // esp_ble_gattc_open(gl_profile_tab[PROFILE_B_APP_ID].gattc_if, scan_result->scan_rst.bda, scan_result->scan_rst.ble_addr_type, true);
-            //             Isconnecting = true;
-
-            //         }
-            //     }
-            //     else if (strlen(remote_device_name[2]) == adv_service_uuid_len && strncmp((char *)adv_service_uuid, remote_device_name[2], adv_service_uuid_len) == 0) {
-            //         if (conn_device_c == false) {
-            //             conn_device_c = true;
-            //             ESP_LOGI(GATTC_TAG, "Searched device %s", remote_device_name[2]);
-            //             esp_ble_gap_stop_scanning();
-            //             // esp_ble_gattc_open(gl_profile_tab[PROFILE_C_APP_ID].gattc_if, scan_result->scan_rst.bda, scan_result->scan_rst.ble_addr_type, true);
-            //             Isconnecting = true;
-            //         }
-            //         break;
-            //     }
-
-            // }
+            } 
 
             break;
         case ESP_GAP_SEARCH_INQ_CMPL_EVT:
@@ -116,7 +77,7 @@ void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
     case ESP_GAP_BLE_SCAN_PARAM_SET_COMPLETE_EVT: {
 
         // SCAN PARAMETERS ARE SET, START SCANNING
-        uint32_t duration = 30;         // seconds
+        uint32_t duration = 30;
         esp_ble_gap_start_scanning(duration);
         break;
         
@@ -126,6 +87,7 @@ void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
         // scan start complete event to indicate scan start successfully or failed
         if (param->scan_start_cmpl.status == ESP_BT_STATUS_SUCCESS) {
             ESP_LOGI(GATTC_TAG, "Scan start success");
+            is_scanning = true;
         }else{
             ESP_LOGE(GATTC_TAG, "Scan start failed");
         }
@@ -133,6 +95,10 @@ void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
         break;
 
     case ESP_GAP_BLE_SCAN_RESULT_EVT: {
+
+        if (!is_scanning) {
+            break;
+        }
 
         // one scan result has came
         esp_ble_gap_cb_param_t *scan_result = (esp_ble_gap_cb_param_t *)param;
@@ -147,6 +113,7 @@ void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
             break;
         }
         ESP_LOGI(GATTC_TAG, "Stop scan successfully");
+        is_scanning = false;
 
         break;
 

@@ -1,18 +1,6 @@
-#include "uuid16.h"
+#include "uuid128.h"
 
 unsigned int size = 16;
-
-// Convert a UUID string to a byte array
-void uuid_str_to_bytes(const char* uuid_str, uint8_t* uuid_bytes) {
-    const char* pos = uuid_str;
-    for (size_t i = 0; i < size; i++) {
-        sscanf(pos, "%2hhx", &uuid_bytes[i]);
-        pos += 2;
-        if (*pos == '-') {
-            pos++;
-        }
-    }
-}
 
 // Extract service UUID from advertisement data
 bool get_adv_service_uuid(uint8_t *adv_data, uint8_t adv_data_len, uint8_t *service_uuid) {

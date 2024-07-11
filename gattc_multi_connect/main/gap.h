@@ -11,7 +11,8 @@
 #include "esp_check.h"
 
 #include "constants.h"
-#include "uuid16.h"
+#include "uuid128.h"
+#include "gattc.h"
 
 void init_gap();
 void start_scan();

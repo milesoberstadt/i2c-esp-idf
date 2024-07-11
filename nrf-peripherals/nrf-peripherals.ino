@@ -7,7 +7,8 @@
 #define GYRO_UUID "31d31ed5-aa9b-4325-b011-25caa3765c2a"
 #define ACCEL_UUID "bcd6dfbe-0c7b-4530-a5b3-ecd2ed69ff4f"
 
-#define SEND_INTERVAL 1000
+#define DISCOVERY_INTERVAL 1000 // Ms
+#define SEND_INTERVAL 10 // Hz
 
 BLEService dataService(SERVICE_UUID); 
 BLECharacteristic gyroCharacteristic(GYRO_UUID, BLERead | BLEWrite, 100);
@@ -63,16 +64,12 @@ void loop() {
       gyroCharacteristic.writeValue(gyro);
       Serial.println(gyro);
 
-      // if (accelCharacterictic.canWrite()) {
-      //   char accelerometer[100];
-      //   sprintf(accelerometer, "%.2f;%.2f;%.2f", myIMU.readFloatAccelX(), myIMU.readFloatAccelY(),  myIMU.readFloatAccelZ());
-      //   accelCharacterictic.writeValue(accelerometer);
-      //   Serial.println(accelerometer);
-      // } else {
-      //   Serial.println("Can't write accelCharacterictic");
-      // }
+      char accelerometer[100];
+      sprintf(accelerometer, "%.2f;%.2f;%.2f", myIMU.readFloatAccelX(), myIMU.readFloatAccelY(),  myIMU.readFloatAccelZ());
+      accelCharacterictic.writeValue(accelerometer);
+      Serial.println(accelerometer);
 
-      delay(SEND_INTERVAL);
+      delay(1000/SEND_INTERVAL);
 
     }
     
