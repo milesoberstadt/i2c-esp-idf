@@ -1,5 +1,9 @@
-# Energy harvesting
+# Multi connection BLE client
 
-## Step 1
+## ESP32 Multi connection BLE client
 
-Measuring tree sway and oscilation using nRF 52840 and ESP-32C6, communicating with BLE
+> Readme coming soon
+
+## nRF52840 sensor server
+
+> Readme coming soon

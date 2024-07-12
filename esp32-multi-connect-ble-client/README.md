@@ -1,7 +1,9 @@
 | Supported Targets | ESP32 | ESP32-C2 | ESP32-C3 | ESP32-C6 | ESP32-H2 | ESP32-S3 |
 | ----------------- | ----- | -------- | -------- | -------- | -------- | -------- |
 
-# ESP-IDF Gatt Client Multi Connection Example
+# ESP-IDF Multi Connection BLE Client
+
+> Readme coming soon :)
 
 This example shows the usage of APIs to create a GATT multi-connection client. It can be used to connect to three GATT servers at the same time.
 
@@ -21,8 +23,8 @@ The code can be modified to connect to more devices (up to 4 devices by default)
 
 ### Hardware Required
 
-* A development board with ESP32/ESP32-C3/ESP32-C2/ESP32-H2/ESP32-S3 SoC (e.g., ESP32-DevKitC, ESP-WROVER-KIT, etc.)
-* A USB cable for Power supply and programming
+- A development board with ESP32/ESP32-C3/ESP32-C2/ESP32-H2/ESP32-S3 SoC (e.g., ESP32-DevKitC, ESP-WROVER-KIT, etc.)
+- A USB cable for Power supply and programming
 
 See [Development Boards](https://www.espressif.com/en/products/devkits) for more information about it.
 
@@ -30,7 +32,7 @@ See [Development Boards](https://www.espressif.com/en/products/devkits) for more
 
 Run `idf.py -p PORT flash monitor` to build, flash and monitor the project.
 
-(To exit the serial monitor, type ``Ctrl-]``.)
+(To exit the serial monitor, type `Ctrl-]`.)
 
 See the [Getting Started Guide](https://idf.espressif.com/) for full steps to configure and use ESP-IDF to build projects.
 
