@@ -13,6 +13,7 @@
 #include "constants.h"
 #include "uuid128.h"
 #include "gattc.h"
+#include "led.h"
 
 #define GAP_TAG "ESP32_MCBC_GAP"
 

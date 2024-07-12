@@ -17,6 +17,20 @@ void start_scan(void)
     esp_ble_gap_start_scanning(duration);
 }
 
+void scan_started_handler() {
+    is_scanning = true;
+    #if USE_LED
+        start_led_blink(100);
+    #endif
+}
+
+void scan_ended_handler() {
+    is_scanning = false;
+    #if USE_LED
+        stop_led_blink();
+    #endif
+}
+
 void handle_scan_result(esp_ble_gap_cb_param_t *scan_result) {
 
     switch (scan_result->scan_rst.search_evt) {
@@ -44,7 +58,6 @@ void handle_scan_result(esp_ble_gap_cb_param_t *scan_result) {
 
                 // service uuid is matching, start gattc
                 esp_ble_gap_stop_scanning();
-                is_scanning = false;
 
                 open_profile(scan_result->scan_rst.bda, scan_result->scan_rst.ble_addr_type);
 
@@ -53,7 +66,7 @@ void handle_scan_result(esp_ble_gap_cb_param_t *scan_result) {
             break;
         case ESP_GAP_SEARCH_INQ_CMPL_EVT:
             ESP_LOGI(GAP_TAG, "SCAN COMPLETED");
-            is_scanning = false;
+            scan_ended_handler();
             break;
         default:
             break;
@@ -80,15 +93,13 @@ void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
         break;
     }
     case ESP_GAP_BLE_SCAN_START_COMPLETE_EVT:
-
         // scan start complete event to indicate scan start successfully or failed
         if (param->scan_start_cmpl.status == ESP_BT_STATUS_SUCCESS) {
             ESP_LOGI(GAP_TAG, "SCAN STARTED SUCCESSFULLY");
-            is_scanning = true;
+            scan_started_handler();
         }else{
             ESP_LOGE(GAP_TAG, "Scan start failed");
         }
-
         break;
 
     case ESP_GAP_BLE_SCAN_RESULT_EVT: {
@@ -110,7 +121,7 @@ void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
             break;
         }
         ESP_LOGI(GAP_TAG, "SCAN STOPPED SUCCESSFULLY");
-        is_scanning = false;
+        scan_ended_handler();
 
         break;
 
@@ -121,7 +132,6 @@ void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
         }
         ESP_LOGI(GAP_TAG, "ADV STOPPED SUCCESSFULLY");
         break;
-
     default:
         break;
     }
