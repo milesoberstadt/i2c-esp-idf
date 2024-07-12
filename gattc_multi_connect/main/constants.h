@@ -9,6 +9,8 @@
 
 #define REMOTE_NOTIFY_CHAR_UUID    0xFF01
 
+#define LED_PIN GPIO_NUM_5
+
 // 19b10000-e8f2-537e-4f6c-d104768a1214
 static esp_bt_uuid_t remote_service_uuid = {
     .len = ESP_UUID_LEN_128,

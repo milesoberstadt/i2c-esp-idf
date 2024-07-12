@@ -33,6 +33,7 @@
 #include "constants.h"
 #include "gap.h"
 #include "gattc.h"
+#include "led.h"
 
 #define MAIN_TAG "ESP32_MULTI_CONNECT_BLE_CLIENT"
 
@@ -74,12 +75,15 @@ void app_main(void)
 
     init_gap();
     init_gattc();
+    init_led();
 
     ret = esp_ble_gatt_set_local_mtu(200);
     if (ret){
         ESP_LOGE(MAIN_TAG, "set local  MTU failed, error code = %x", ret);
     }
 
-    start_scan();
+    // start_scan();
+
+    set_led(true);
 
 }
