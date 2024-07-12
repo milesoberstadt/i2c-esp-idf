@@ -20,7 +20,7 @@ void start_scan(void)
 void scan_started_handler() {
     is_scanning = true;
     #if USE_LED
-        start_led_blink(100);
+        start_led_blink(300);
     #endif
 }
 

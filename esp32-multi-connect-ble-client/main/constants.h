@@ -11,6 +11,7 @@
 
 #define USE_LED 1
 #define LED_PIN GPIO_NUM_5
+#define LOG_LED 1
 
 #define BUTTON_PIN GPIO_NUM_15
 

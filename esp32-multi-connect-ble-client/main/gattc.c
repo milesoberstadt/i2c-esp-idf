@@ -26,6 +26,18 @@ size_t getIdxByGattIf(esp_gatt_if_t gattc_if) {
     return -1;
 }
 
+void connection_start_handler() {
+    #if USE_LED
+        start_led_blink(100);
+    #endif
+}
+
+void connection_end_handler() {
+    #if USE_LED
+        stop_led_blink();
+    #endif
+}
+
 void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *param)
 {
 
@@ -55,8 +67,9 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
             ESP_LOGE(DEVICE_TAG, "connection failed, status %d", p_data->open.status);
             profiles[idx].connected = false;
             profiles[idx].discovered = false;
-            start_scan();
             break;
+        } else {
+            connection_start_handler();
         }
 
         memcpy(profiles[idx].remote_bda, p_data->open.remote_bda, 6);
@@ -71,13 +84,12 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
             ESP_LOGE(DEVICE_TAG, "config MTU error, error code = %x", mtu_ret);
         }
 
-        start_scan();
-
         break;
     case ESP_GATTC_CFG_MTU_EVT:
 
         if (param->cfg_mtu.status != ESP_GATT_OK){
             ESP_LOGE(DEVICE_TAG,"Config mtu failed");
+            connection_end_handler();
         }
 
         ESP_LOGI(DEVICE_TAG, "mut set : Status %d, MTU %d, conn_id %d", param->cfg_mtu.status, param->cfg_mtu.mtu, param->cfg_mtu.conn_id);
@@ -117,6 +129,7 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
 
         if (p_data->search_cmpl.status != ESP_GATT_OK){
             ESP_LOGE(DEVICE_TAG, "search service failed, error status = %x", p_data->search_cmpl.status);
+            connection_end_handler();
             break;
         }
         if (profiles[idx].discovered){
@@ -134,6 +147,8 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
             }
 
             ESP_LOGI(DEVICE_TAG, "Characteritics found : %d", count);
+
+            connection_end_handler();
 
             // if (count > 0) {
 
@@ -354,7 +369,6 @@ void open_profile(esp_bd_addr_t bda, esp_ble_addr_type_t ble_addr_type) {
     if (ret){
         ESP_LOGE(GATTC_TAG, "gattc open error, error code = %x", ret);
         ESP_LOGI(GATTC_TAG, "Restarting scanning");
-        start_scan();
     }
 
 }

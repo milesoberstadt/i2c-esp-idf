@@ -1,7 +1,7 @@
 #include "led.h"
 
 static SemaphoreHandle_t xSemaphore = NULL;
-static bool led_blinking = false;
+static int led_blinking = 0;
 static int blink_delay = 500;
 
 void led_blink_task(void *pvParameter)
@@ -15,10 +15,10 @@ void led_blink_task(void *pvParameter)
             // Toggle the LED based on the led_blinking state
             while (led_blinking)
             {
-                gpio_set_level(LED_PIN, 1);
+                set_led(1);
                 vTaskDelay(blink_delay / portTICK_PERIOD_MS);  // LED on for 500ms
 
-                gpio_set_level(LED_PIN, 0);
+                set_led(0);
                 vTaskDelay(blink_delay / portTICK_PERIOD_MS);  // LED off for 500ms
 
                 // Check if the led_blinking state has changed
@@ -66,11 +66,27 @@ bool get_led() {
 
 void start_led_blink(int delay_ms) {
     blink_delay = delay_ms;
-    led_blinking = true;
+    led_blinking++;
+    #if LOG_LED
+        ESP_LOGI(LED_TAG, "LED blinking started (%d)", led_blinking);
+    #endif
     xSemaphoreGiveFromISR(xSemaphore, NULL);
 }
 
 void stop_led_blink() {
-    led_blinking = false;
+    if (!led_blinking) {
+        #if LOG_LED
+            ESP_LOGI(LED_TAG, "LED blinking already stopped");
+        #endif
+        return;
+    }
+    led_blinking--;
+    #if LOG_LED
+        if (!led_blinking) {
+        ESP_LOGI(LED_TAG, "LED blinking stopped (%d)", led_blinking);
+        } else {
+            ESP_LOGI(LED_TAG, "LED blinking decreased (%d)", led_blinking);
+        }
+    #endif
     xSemaphoreGiveFromISR(xSemaphore, NULL);
 }
