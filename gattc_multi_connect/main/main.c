@@ -16,40 +16,28 @@
 *
 ****************************************************************************/
 
-#include <stdint.h>
-#include <string.h>
-#include <stdbool.h>
 #include <stdio.h>
 #include "nvs.h"
 #include "nvs_flash.h"
 
 #include "esp_bt.h"
-#include "esp_gattc_api.h"
 #include "esp_bt_main.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 
-#include "types.h"
 #include "constants.h"
 #include "gap.h"
 #include "gattc.h"
 #include "led.h"
+#include "button.h"
 
 #define MAIN_TAG "ESP32_MULTI_CONNECT_BLE_CLIENT"
 
-void app_main(void)
-{
-    esp_err_t ret = nvs_flash_init();
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        ret = nvs_flash_init();
-    }
-    ESP_ERROR_CHECK( ret );
-
+void init_bluetooth() {
     ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT));
 
     esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
-    ret = esp_bt_controller_init(&bt_cfg);
+    esp_err_t ret = esp_bt_controller_init(&bt_cfg);
     if (ret) {
         ESP_LOGE(MAIN_TAG, "%s initialize controller failed: %s", __func__, esp_err_to_name(ret));
         return;
@@ -72,18 +60,28 @@ void app_main(void)
         ESP_LOGE(MAIN_TAG, "%s enable bluetooth failed: %s", __func__, esp_err_to_name(ret));
         return;
     }
+}
 
+void init_nvs() {
+    esp_err_t ret = nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        ret = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK( ret );
+}
+
+void app_main(void)
+{
+    init_nvs();
+    init_bluetooth();
     init_gap();
     init_gattc();
-    init_led();
 
-    ret = esp_ble_gatt_set_local_mtu(200);
-    if (ret){
-        ESP_LOGE(MAIN_TAG, "set local  MTU failed, error code = %x", ret);
-    }
+    #if USE_LED
+        init_led();
+    #endif
 
-    // start_scan();
-
-    set_led(true);
+    init_button(button_start_scan);
 
 }

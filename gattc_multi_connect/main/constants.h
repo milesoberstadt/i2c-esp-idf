@@ -9,7 +9,12 @@
 
 #define REMOTE_NOTIFY_CHAR_UUID    0xFF01
 
+#define USE_LED 1
 #define LED_PIN GPIO_NUM_5
+
+#define BUTTON_PIN GPIO_NUM_15
+
+#define DEBOUNCE_TIME_MS 50
 
 // 19b10000-e8f2-537e-4f6c-d104768a1214
 static esp_bt_uuid_t remote_service_uuid = {

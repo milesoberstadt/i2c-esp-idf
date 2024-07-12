@@ -7,8 +7,11 @@
 #include "freertos/task.h"
 #include "driver/gpio.h"
 #include "sdkconfig.h"
+#include "esp_check.h"
 
 #include "constants.h"
+
+#define LED_TAG "LED"
 
 void init_led();
 void set_led(bool state);

@@ -324,6 +324,14 @@ void init_gattc() {
         }
     }
 
+    // set local MTU
+    ret = esp_ble_gatt_set_local_mtu(200);
+    if (ret){
+        ESP_LOGE(GATTC_TAG, "set local  MTU failed, error code = %x", ret);
+    }    
+
+    ESP_LOGI(GATTC_TAG, "GATTC initialized");
+
 }
 
 void open_profile(esp_bd_addr_t bda, esp_ble_addr_type_t ble_addr_type) {

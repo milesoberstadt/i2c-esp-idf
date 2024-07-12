@@ -13,10 +13,8 @@ static esp_ble_scan_params_t ble_scan_params = {
 
 void start_scan(void)
 {
-    esp_err_t scan_ret = esp_ble_gap_set_scan_params(&ble_scan_params);
-    if (scan_ret){
-        ESP_LOGE(GAP_TAG, "set scan params error, error code = %x", scan_ret);
-    }
+    uint32_t duration = 30;
+    esp_ble_gap_start_scanning(duration);
 }
 
 void handle_scan_result(esp_ble_gap_cb_param_t *scan_result) {
@@ -38,7 +36,7 @@ void handle_scan_result(esp_ble_gap_cb_param_t *scan_result) {
                 
                 if (!compare_uuid(remote_service_uuid.uuid.uuid128, service_uuid)) {
                     ESP_LOGI(GAP_TAG, "Service UUID not matching with the remote service UUID.");
-                    // todo : stop scanning this device
+                    // todo : maybe stop analysing this device
                     break;
                 }
 
@@ -54,8 +52,8 @@ void handle_scan_result(esp_ble_gap_cb_param_t *scan_result) {
 
             break;
         case ESP_GAP_SEARCH_INQ_CMPL_EVT:
-            // scan finished
             ESP_LOGI(GAP_TAG, "SCAN COMPLETED");
+            is_scanning = false;
             break;
         default:
             break;
@@ -79,12 +77,7 @@ void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
         break;
 
     case ESP_GAP_BLE_SCAN_PARAM_SET_COMPLETE_EVT: {
-
-        // SCAN PARAMETERS ARE SET, START SCANNING
-        uint32_t duration = 30;
-        esp_ble_gap_start_scanning(duration);
         break;
-        
     }
     case ESP_GAP_BLE_SCAN_START_COMPLETE_EVT:
 
@@ -141,4 +134,16 @@ void init_gap() {
         ESP_LOGE(GAP_TAG, "gap register error, error code = %x", ret);
         return;
     }
+
+    // set scan parameters
+    ret = esp_ble_gap_set_scan_params(&ble_scan_params);
+    if (ret){
+        ESP_LOGE(GAP_TAG, "set scan params error, error code = %x", ret);
+    }
+
+    ESP_LOGI(GAP_TAG, "GAP initialized");
+}
+
+bool get_is_scanning() {
+    return is_scanning;
 }

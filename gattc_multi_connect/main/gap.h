@@ -19,4 +19,6 @@
 void init_gap();
 void start_scan();
 
+bool get_is_scanning();
+
 #endif // __GAP_H__
