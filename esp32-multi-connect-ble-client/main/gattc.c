@@ -38,6 +38,40 @@ void connection_end_handler() {
     #endif
 }
 
+void disconnected_handler(size_t idx) {
+
+    char DEVICE_TAG[16];
+    snprintf(DEVICE_TAG, sizeof(DEVICE_TAG), "DEVICE_%d", idx);
+
+    esp_err_t ret = esp_ble_gattc_app_unregister(profiles[idx].gattc_if);
+    if (ret){
+        ESP_LOGE(DEVICE_TAG, "gattc app unregister error, error code = %x", ret);
+    }
+
+    profiles[idx].connected = false;
+    profiles[idx].discovered = false;
+    profiles[idx].gattc_if = ESP_GATT_IF_NONE;
+    
+    ESP_LOGI(DEVICE_TAG, "DEVICE DISCONNECTED");
+}
+
+void connection_oppened_handler(size_t idx, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *p_data) {
+    profiles[idx].conn_id = p_data->open.conn_id;
+    profiles[idx].connected = true;
+
+    char DEVICE_TAG[16];
+    snprintf(DEVICE_TAG, sizeof(DEVICE_TAG), "DEVICE_%d", idx); 
+
+    ESP_LOGI(DEVICE_TAG, "DEVICE CONNECTED SUCCESSFULLY");
+    ESP_LOGI(DEVICE_TAG, "conn_id %d, if %d, status %d, mtu %d", p_data->open.conn_id, gattc_if, p_data->open.status, p_data->open.mtu);
+    
+    esp_err_t mtu_ret = esp_ble_gattc_send_mtu_req (gattc_if, p_data->open.conn_id);
+    if (mtu_ret){
+        ESP_LOGE(DEVICE_TAG, "config MTU error, error code = %x", mtu_ret);
+    }
+
+}
+
 void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *param)
 {
 
@@ -53,9 +87,23 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
 
     esp_ble_gattc_cb_param_t *p_data = (esp_ble_gattc_cb_param_t *)param;
 
+    esp_err_t ret;
+
     switch (event) {
     case ESP_GATTC_REG_EVT:
         ESP_LOGI(DEVICE_TAG, "Device registered");
+        ESP_LOGI(DEVICE_TAG, "Opening profile ...");
+
+        ret = esp_ble_gattc_open(
+                profiles[idx].gattc_if, 
+                profiles[idx].remote_bda,
+                profiles[idx].ble_addr_type, 
+                true);
+
+        if (ret){
+            ESP_LOGE(GATTC_TAG, "gattc open error, error code = %x", ret);
+        }
+
         break;
     /* one device connect successfully, all profiles callback function will get the ESP_GATTC_CONNECT_EVT,
      so must compare the mac address to check which device is connected, so it is a good choice to use ESP_GATTC_OPEN_EVT. */
@@ -65,24 +113,12 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
 
         if (p_data->open.status != ESP_GATT_OK){
             ESP_LOGE(DEVICE_TAG, "connection failed, status %d", p_data->open.status);
-            profiles[idx].connected = false;
-            profiles[idx].discovered = false;
+            connection_end_handler();
+            disconnected_handler(idx);
             break;
-        } else {
-            connection_start_handler();
-        }
+        } 
 
-        memcpy(profiles[idx].remote_bda, p_data->open.remote_bda, 6);
-        profiles[idx].conn_id = p_data->open.conn_id;
-        profiles[idx].connected = true;
-
-        ESP_LOGI(DEVICE_TAG, "DEVICE CONNECTED SUCCESSFULLY");
-        ESP_LOGI(DEVICE_TAG, "conn_id %d, if %d, status %d, mtu %d", p_data->open.conn_id, gattc_if, p_data->open.status, p_data->open.mtu);
-        
-        esp_err_t mtu_ret = esp_ble_gattc_send_mtu_req (gattc_if, p_data->open.conn_id);
-        if (mtu_ret){
-            ESP_LOGE(DEVICE_TAG, "config MTU error, error code = %x", mtu_ret);
-        }
+        connection_oppened_handler(idx, gattc_if, p_data);
 
         break;
     case ESP_GATTC_CFG_MTU_EVT:
@@ -90,17 +126,19 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
         if (param->cfg_mtu.status != ESP_GATT_OK){
             ESP_LOGE(DEVICE_TAG,"Config mtu failed");
             connection_end_handler();
+            disconnected_handler(idx);
         }
 
         ESP_LOGI(DEVICE_TAG, "mut set : Status %d, MTU %d, conn_id %d", param->cfg_mtu.status, param->cfg_mtu.mtu, param->cfg_mtu.conn_id);
-
         ESP_LOGI(DEVICE_TAG, "Looking for services...");
-        esp_err_t ret = esp_ble_gattc_search_service(
+
+        ret = esp_ble_gattc_search_service(
             gattc_if, 
             param->cfg_mtu.conn_id, 
             // todo : restore remote service uuid
             NULL// &remote_service_uuid
         );
+        
         if (ret){
             ESP_LOGE(DEVICE_TAG, "search service failed, error status = %x", ret);
         }
@@ -130,6 +168,7 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
         if (p_data->search_cmpl.status != ESP_GATT_OK){
             ESP_LOGE(DEVICE_TAG, "search service failed, error status = %x", p_data->search_cmpl.status);
             connection_end_handler();
+            disconnected_handler(idx);
             break;
         }
         if (profiles[idx].discovered){
@@ -283,9 +322,7 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
     }
     case ESP_GATTC_DISCONNECT_EVT:
         if (memcmp(p_data->disconnect.remote_bda, profiles[idx].remote_bda, 6) == 0){
-            ESP_LOGI(DEVICE_TAG, "DEVICE DISCONNECTED");
-            profiles[idx].connected = false;
-            profiles[idx].discovered = false;
+            disconnected_handler(idx);
         }
         break;
     default:
@@ -295,18 +332,23 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
 
 void esp_gattc_cb(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *param)
 {
-    ESP_LOGI(GATTC_TAG, "EVT %d, gattc if %d, app_id %d", event, gattc_if, param->reg.app_id);
 
-    /* If event is register event, store the gattc_if for each profile */
-    if (event == ESP_GATTC_REG_EVT) {
-        if (param->reg.status == ESP_GATT_OK) {
+    switch (event) {
+        case ESP_GATTC_REG_EVT:
+            if (param->reg.status == ESP_GATT_OK) {
             profiles[param->reg.app_id].gattc_if = gattc_if;
-        } else {
-            ESP_LOGI(GATTC_TAG, "Reg app failed, app_id %04x, status %d",
-                    param->reg.app_id,
-                    param->reg.status);
-            return;
-        }
+            } else {
+                ESP_LOGI(GATTC_TAG, "Reg app failed, app_id %04x, status %d",
+                        param->reg.app_id,
+                        param->reg.status);
+                return;
+            }
+            break;
+        case ESP_GATTC_UNREG_EVT:
+            ESP_LOGI(GATTC_TAG, "Profile unregistered");
+            break;
+        default:
+            break;
     }
 
     /* If the gattc_if equal to profile A, call profile A cb handler,
@@ -330,15 +372,6 @@ void init_gattc() {
         return;
     }
 
-    // register profiles 
-    for (size_t i = 0; i < PROFILE_NUM; i++) {
-        ret = esp_ble_gattc_app_register(i);
-        if (ret){
-            ESP_LOGE(GATTC_TAG, "gattc app register error, error code = %x", ret);
-            return;
-        }
-    }
-
     // set local MTU
     ret = esp_ble_gatt_set_local_mtu(200);
     if (ret){
@@ -358,17 +391,17 @@ void open_profile(esp_bd_addr_t bda, esp_ble_addr_type_t ble_addr_type) {
         return;
     }
 
-    ESP_LOGI(GATTC_TAG, "Opening profile at idx %d", idx);
+    ESP_LOGI(GATTC_TAG, "Registering device at idx %d", idx);
+    connection_start_handler();
 
-    esp_err_t ret = esp_ble_gattc_open(
-        profiles[idx].gattc_if, 
-        bda, 
-        ble_addr_type, 
-        true);
+    profiles[idx].ble_addr_type = ble_addr_type;
+    memcpy(profiles[idx].remote_bda, bda, 6);
 
+    esp_err_t ret = esp_ble_gattc_app_register(idx);
     if (ret){
-        ESP_LOGE(GATTC_TAG, "gattc open error, error code = %x", ret);
-        ESP_LOGI(GATTC_TAG, "Restarting scanning");
+        ESP_LOGE(GATTC_TAG, "gattc app register error, error code = %x", ret);
+        connection_end_handler();
+        return;
     }
 
 }

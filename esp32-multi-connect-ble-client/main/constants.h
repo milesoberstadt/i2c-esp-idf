@@ -4,7 +4,7 @@
 #include "esp_bt_defs.h"
 #include "esp_gatt_defs.h"
 
-#define PROFILE_NUM 3
+#define PROFILE_NUM 5
 #define INVALID_HANDLE   0
 
 #define REMOTE_NOTIFY_CHAR_UUID    0xFF01
