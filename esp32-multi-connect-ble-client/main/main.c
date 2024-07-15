@@ -1,35 +1,16 @@
-/*
- * SPDX-FileCopyrightText: 2021-2023 Espressif Systems (Shanghai) CO LTD
- *
- * SPDX-License-Identifier: Unlicense OR CC0-1.0
- */
-
-/****************************************************************************
-*
-* This file is for gatt client. It can scan ble device, connect multiple devices,
-* The gattc_multi_connect demo can connect three ble slaves at the same time.
-* Modify the name of gatt_server demo named ESP_GATTS_DEMO_a,
-* ESP_GATTS_DEMO_b and ESP_GATTS_DEMO_c,then run three demos,the gattc_multi_connect demo will connect
-* the three gatt_server demos, and then exchange data.
-* Of course you can also modify the code to connect more devices, we default to connect
-* up to 4 devices, more than 4 you need to modify menuconfig.
-*
-****************************************************************************/
-
 #include <stdio.h>
-#include "nvs.h"
-#include "nvs_flash.h"
+#include <stdbool.h>
 
 #include "esp_bt.h"
 #include "esp_bt_main.h"
 #include "esp_log.h"
-#include "freertos/FreeRTOS.h"
 
 #include "constants.h"
 #include "gap.h"
 #include "gattc.h"
 #include "led.h"
 #include "button.h"
+#include "preferences.h"
 
 #define MAIN_TAG "ESP32_MULTI_CONNECT_BLE_CLIENT"
 
@@ -62,25 +43,19 @@ void init_bluetooth() {
     }
 }
 
-void init_nvs() {
-    esp_err_t ret = nvs_flash_init();
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        ret = nvs_flash_init();
-    }
-    ESP_ERROR_CHECK( ret );
-}
-
 void app_main(void)
 {
-    init_nvs();
+    bool ret = init_preferences();
+    if (!ret) {
+        ESP_LOGE(MAIN_TAG, "Failed to initialize preferences");
+        return;
+    }
+
     init_bluetooth();
     init_gap();
     init_gattc();
 
-    #if USE_LED
-        init_led();
-    #endif
+    init_led();
 
     init_button(button_start_scan);
 

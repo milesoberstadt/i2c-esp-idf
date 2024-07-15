@@ -6,10 +6,14 @@ size_t get_profile_count() {
     return sizeof(profiles) / sizeof(profiles[0]);
 }
 
+bool is_profile_available(size_t idx) {
+    return !profiles[idx].connected;
+}
+
 size_t next_available_profile_idx() {
     size_t count = get_profile_count();
     for (size_t i = 0; i < count; i++) {
-        if (!profiles[i].connected) {
+        if (is_profile_available(i)) {
             return i;
         }
     }
@@ -26,19 +30,17 @@ size_t getIdxByGattIf(esp_gatt_if_t gattc_if) {
     return -1;
 }
 
-void connection_start_handler() {
-    #if USE_LED
-        start_led_blink(100);
-    #endif
+void connection_start_handler(size_t idx) {
+    start_led_blink(idx);
 }
 
-void connection_end_handler() {
-    #if USE_LED
-        stop_led_blink();
-    #endif
+void connection_end_handler(size_t idx) {
+    stop_led_blink(idx);
 }
 
 void disconnected_handler(size_t idx) {
+
+    connection_end_handler(idx);
 
     char DEVICE_TAG[16];
     snprintf(DEVICE_TAG, sizeof(DEVICE_TAG), "DEVICE_%d", idx);
@@ -113,7 +115,6 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
 
         if (p_data->open.status != ESP_GATT_OK){
             ESP_LOGE(DEVICE_TAG, "connection failed, status %d", p_data->open.status);
-            connection_end_handler();
             disconnected_handler(idx);
             break;
         } 
@@ -125,7 +126,6 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
 
         if (param->cfg_mtu.status != ESP_GATT_OK){
             ESP_LOGE(DEVICE_TAG,"Config mtu failed");
-            connection_end_handler();
             disconnected_handler(idx);
         }
 
@@ -167,7 +167,6 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
 
         if (p_data->search_cmpl.status != ESP_GATT_OK){
             ESP_LOGE(DEVICE_TAG, "search service failed, error status = %x", p_data->search_cmpl.status);
-            connection_end_handler();
             disconnected_handler(idx);
             break;
         }
@@ -187,7 +186,8 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
 
             ESP_LOGI(DEVICE_TAG, "Characteritics found : %d", count);
 
-            connection_end_handler();
+            // connection process ends here until we develop the characteristics reading part
+            connection_end_handler(idx);
 
             // if (count > 0) {
 
@@ -382,17 +382,25 @@ void init_gattc() {
 
 }
 
-void open_profile(esp_bd_addr_t bda, esp_ble_addr_type_t ble_addr_type) {
+// if called with idx = -1, will try to find next available profile
+void open_profile(esp_bd_addr_t bda, esp_ble_addr_type_t ble_addr_type, size_t idx) {
 
-    size_t idx = next_available_profile_idx();
+    if (idx != -1 && !is_profile_available(idx)) {
+        ESP_LOGE(GATTC_TAG, "Trying to open profile at idx %d, but profile is already in use", idx);
+        return;
+    }
 
     if (idx == -1) {
-        ESP_LOGE(GATTC_TAG, "Trying to open profile, but no available profile found");
+        idx = next_available_profile_idx();
+    }
+
+    if (idx == -1) {
+        ESP_LOGE(GATTC_TAG, "Trying to open a new profile, but no available profile found");
         return;
     }
 
     ESP_LOGI(GATTC_TAG, "Registering device at idx %d", idx);
-    connection_start_handler();
+    connection_start_handler(idx);
 
     profiles[idx].ble_addr_type = ble_addr_type;
     memcpy(profiles[idx].remote_bda, bda, 6);
@@ -400,7 +408,7 @@ void open_profile(esp_bd_addr_t bda, esp_ble_addr_type_t ble_addr_type) {
     esp_err_t ret = esp_ble_gattc_app_register(idx);
     if (ret){
         ESP_LOGE(GATTC_TAG, "gattc app register error, error code = %x", ret);
-        connection_end_handler();
+        connection_end_handler(idx);
         return;
     }
 
