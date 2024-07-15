@@ -4,6 +4,9 @@
 #include <stdio.h>
 
 #include "constants.h"
+#include "led.h"
+
+#define UI_TAG "UI"
 
 size_t get_selected_device();
 

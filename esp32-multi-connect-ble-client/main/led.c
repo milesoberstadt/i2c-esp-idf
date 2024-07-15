@@ -4,6 +4,7 @@
 
 static SemaphoreHandle_t xSemaphore[PROFILE_NUM] = {NULL}; // Semaphore array for each LED
 static int led_blinking[PROFILE_NUM] = {0}; // Blinking state array for each LED
+static int blink_counters[PROFILE_NUM] = {0}; // Blink count array for each LED
 
 void led_blink_task(void *pvParameter)
 {
@@ -23,8 +24,8 @@ void led_blink_task(void *pvParameter)
                 set_led(led_id, 0);
                 vTaskDelay(LED_DELAY / portTICK_PERIOD_MS); // LED off for 500ms
 
-                // Check if the led_blinking state has changed
-                if (xSemaphoreTake(xSemaphore[led_id], 0) == pdTRUE)
+                // Check if the led_blinking state has changed or blink count reached
+                if (xSemaphoreTake(xSemaphore[led_id], 0) == pdTRUE || (blink_counters[led_id] > 0 && --blink_counters[led_id] == 0))
                 {
                     break;
                 }
@@ -78,7 +79,7 @@ bool get_led(int led_id)
     return gpio_get_level(LED_PIN + led_id);
 }
 
-void start_led_blink(int led_id)
+void start_led_blink(int led_id, int blink_count)
 {
     if (led_id < 0 || led_id >= PROFILE_NUM)
     {
@@ -87,6 +88,7 @@ void start_led_blink(int led_id)
     }
 
     led_blinking[led_id]++;
+    blink_counters[led_id] = blink_count;
     #if LOG_LED
         ESP_LOGI(LED_TAG, "LED %d blinking started (%d)", led_id, led_blinking[led_id]);
     #endif
@@ -110,6 +112,7 @@ void stop_led_blink(int led_id)
     }
 
     led_blinking[led_id]--;
+    blink_counters[led_id] = 0;
     #if LOG_LED
         if (!led_blinking[led_id])
         {

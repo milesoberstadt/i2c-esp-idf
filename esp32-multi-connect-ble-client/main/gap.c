@@ -19,7 +19,7 @@ void start_scan(void)
 
 void scan_started_handler() {
     is_scanning = true;
-    start_led_blink(get_selected_device());
+    start_led_blink(get_selected_device(), -1);
 }
 
 void scan_ended_handler() {
