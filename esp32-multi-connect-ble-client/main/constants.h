@@ -10,14 +10,12 @@
 #define REMOTE_NOTIFY_CHAR_UUID    0xFF01
 
 // led pins start from here
-#define LED_PIN GPIO_NUM_35
+#define LED_PIN GPIO_NUM_4
 // to LED_PIN + PROFILE_NUM
 
 #define LOG_LED 1
 
 #define BUTTON_PIN GPIO_NUM_1
-
-#define DEBOUNCE_TIME_MS 50
 
 #define PREFERENCES_PARTITION "MCBC"
 

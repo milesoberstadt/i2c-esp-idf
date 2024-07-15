@@ -20,7 +20,7 @@
 
 #define GATTC_TAG "ESP32_MCBC_GATTC"
 
-void init_gattc();
+bool init_gattc();
 
 void open_profile(esp_bd_addr_t bda, esp_ble_addr_type_t ble_addr_type, size_t idx);
 

@@ -189,6 +189,8 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
             // connection process ends here until we develop the characteristics reading part
             connection_end_handler(idx);
 
+            set_led(idx, true);
+
             // if (count > 0) {
 
             //     char_elem_result_a = (esp_gattc_char_elem_t *)malloc(sizeof(esp_gattc_char_elem_t) * count);
@@ -364,21 +366,23 @@ void esp_gattc_cb(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_ga
     } while (0);
 }
 
-void init_gattc() {
+bool init_gattc() {
     //register the callback function to the gattc module
     esp_err_t ret = esp_ble_gattc_register_callback(esp_gattc_cb);
     if(ret){
         ESP_LOGE(GATTC_TAG, "gattc register error, error code = %x", ret);
-        return;
+        return false;
     }
 
     // set local MTU
     ret = esp_ble_gatt_set_local_mtu(200);
     if (ret){
         ESP_LOGE(GATTC_TAG, "set local  MTU failed, error code = %x", ret);
+        return false;
     }    
 
     ESP_LOGI(GATTC_TAG, "GATTC initialized");
+    return true;
 
 }
 

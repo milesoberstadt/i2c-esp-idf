@@ -55,7 +55,7 @@ void handle_scan_result(esp_ble_gap_cb_param_t *scan_result) {
                 // service uuid is matching, start gattc
                 esp_ble_gap_stop_scanning();
 
-                open_profile(scan_result->scan_rst.bda, scan_result->scan_rst.ble_addr_type, -1);
+                open_profile(scan_result->scan_rst.bda, scan_result->scan_rst.ble_addr_type, get_selected_device());
 
             } 
 
@@ -133,21 +133,23 @@ void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
     }
 }
 
-void init_gap() {
+bool init_gap() {
     // register the  callback function to the gap module
     esp_err_t ret = esp_ble_gap_register_callback(esp_gap_cb);
     if (ret){
         ESP_LOGE(GAP_TAG, "gap register error, error code = %x", ret);
-        return;
+        return false;
     }
 
     // set scan parameters
     ret = esp_ble_gap_set_scan_params(&ble_scan_params);
     if (ret){
         ESP_LOGE(GAP_TAG, "set scan params error, error code = %x", ret);
+        return false;
     }
 
     ESP_LOGI(GAP_TAG, "GAP initialized");
+    return true;
 }
 
 bool get_is_scanning() {
