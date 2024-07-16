@@ -36,6 +36,7 @@ void connection_start_handler(size_t idx) {
 
 void connection_end_handler(size_t idx) {
     stop_led_blink(idx);
+    set_led(idx, false);
 }
 
 void disconnected_handler(size_t idx) {
