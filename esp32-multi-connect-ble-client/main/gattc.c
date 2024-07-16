@@ -331,9 +331,17 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
         break;
     case ESP_GATTC_SRVC_CHG_EVT: {
         esp_bd_addr_t bda;
+
         memcpy(bda, p_data->srvc_chg.remote_bda, sizeof(esp_bd_addr_t));
+
         ESP_LOGI(DEVICE_TAG, "ESP_GATTC_SRVC_CHG_EVT, bd_addr:%08x%04x",(bda[0] << 24) + (bda[1] << 16) + (bda[2] << 8) + bda[3],
                  (bda[4] << 8) + bda[5]);
+
+        bool ret = update_device_bda(idx, bda);
+        if (!ret) {
+            ESP_LOGE(DEVICE_TAG, "Failed to update device bda");
+        }
+            
         break;
     }
     case ESP_GATTC_DISCONNECT_EVT:

@@ -14,6 +14,9 @@
 
 void app_main(void)
 {
+
+    ESP_LOGI(MAIN_TAG, "Start program initialization");
+
     bool ret = init_devices();
     if (!ret) {
         ESP_LOGE(MAIN_TAG, "Failed to initialize devices (storage)");
@@ -43,4 +46,10 @@ void app_main(void)
         ESP_LOGE(MAIN_TAG, "Failed to initialize UI");
         return;
     }
+
+    ESP_LOGI(MAIN_TAG, "Initialization complete");
+
+    ESP_LOGI(MAIN_TAG, "Trying to connecting to devices ...");
+    connect_all_devices();
+
 }

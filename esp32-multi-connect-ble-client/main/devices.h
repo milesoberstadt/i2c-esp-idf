@@ -12,6 +12,7 @@
 
 #include "constants.h"
 #include "preferences.h"
+#include "gattc.h"
 
 #define DEVICES_TAG "DEVICES"
 
@@ -38,10 +39,18 @@ bool remove_device(size_t idx);
 
 size_t get_device_count();
 
-void allocate_devices(device **devices, size_t count);
+// void allocate_devices(device **devices, size_t count);
 
-size_t get_devices(device *devices);
+bool get_device(size_t idx, device *dev);
 
-void free_devices(device *devices, size_t count);
+// size_t get_devices(device *devices);
+
+// void free_devices(device *devices, size_t count);
+
+void connect_device(size_t idx);
+
+void connect_all_devices();
+
+bool update_device_bda(size_t idx, esp_bd_addr_t bda);
 
 #endif // __DEVICES_H__
