@@ -1,6 +1,6 @@
 #include "gattc.h"
 
-static struct gattc_profile_inst profiles[PROFILE_NUM];
+static struct gattc_profile_inst profiles[MAX_DEVICES];
 
 size_t get_profile_count() {
     return sizeof(profiles) / sizeof(profiles[0]);
@@ -20,9 +20,13 @@ size_t next_available_profile_idx() {
     return -1;
 }
 
-size_t getIdxByGattIf(esp_gatt_if_t gattc_if) {
+void generate_device_tag(size_t idx, char *tag) {
+    snprintf(tag, DEVICE_TAG_SIZE, "DEVICE_%d", idx);
+}
+
+size_t get_idx_by_gattc_if(esp_gatt_if_t gattc_if) {
     size_t idx;
-    for (idx = 0; idx < PROFILE_NUM; idx++) {
+    for (idx = 0; idx < MAX_DEVICES; idx++) {
         if (profiles[idx].gattc_if == gattc_if) {
             return idx;
         }
@@ -39,12 +43,22 @@ void connection_end_handler(size_t idx) {
     set_led(idx, false);
 }
 
+void connection_success_handler(size_t idx) {
+    set_led(idx, true);
+
+    bool ret = add_device(profiles[idx].remote_bda, profiles[idx].ble_addr_type, idx);
+    if (!ret) {
+        ESP_LOGE(GATTC_TAG, "Failed to save device");
+    }
+
+}
+
 void disconnected_handler(size_t idx) {
 
     connection_end_handler(idx);
 
-    char DEVICE_TAG[16];
-    snprintf(DEVICE_TAG, sizeof(DEVICE_TAG), "DEVICE_%d", idx);
+    char DEVICE_TAG[DEVICE_TAG_SIZE];
+    generate_device_tag(idx, DEVICE_TAG);
 
     esp_err_t ret = esp_ble_gattc_app_unregister(profiles[idx].gattc_if);
     if (ret){
@@ -62,8 +76,8 @@ void connection_oppened_handler(size_t idx, esp_gatt_if_t gattc_if, esp_ble_gatt
     profiles[idx].conn_id = p_data->open.conn_id;
     profiles[idx].connected = true;
 
-    char DEVICE_TAG[16];
-    snprintf(DEVICE_TAG, sizeof(DEVICE_TAG), "DEVICE_%d", idx); 
+    char DEVICE_TAG[DEVICE_TAG_SIZE];
+    generate_device_tag(idx, DEVICE_TAG);
 
     ESP_LOGI(DEVICE_TAG, "DEVICE CONNECTED SUCCESSFULLY");
     ESP_LOGI(DEVICE_TAG, "conn_id %d, if %d, status %d, mtu %d", p_data->open.conn_id, gattc_if, p_data->open.status, p_data->open.mtu);
@@ -78,15 +92,15 @@ void connection_oppened_handler(size_t idx, esp_gatt_if_t gattc_if, esp_ble_gatt
 void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *param)
 {
 
-    size_t idx = getIdxByGattIf(gattc_if);
+    size_t idx = get_idx_by_gattc_if(gattc_if);
 
     if (idx == -1) {
         ESP_LOGE(GATTC_TAG, "Profile not found for gattc_if %d", gattc_if);
         return;
     }
 
-    char DEVICE_TAG[16];
-    snprintf(DEVICE_TAG, sizeof(DEVICE_TAG), "DEVICE_%d", idx);
+    char DEVICE_TAG[DEVICE_TAG_SIZE];
+    generate_device_tag(idx, DEVICE_TAG);
 
     esp_ble_gattc_cb_param_t *p_data = (esp_ble_gattc_cb_param_t *)param;
 
@@ -189,8 +203,7 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
 
             // connection process ends here until we develop the characteristics reading part
             connection_end_handler(idx);
-
-            set_led(idx, true);
+            connection_success_handler(idx);
 
             // if (count > 0) {
 
@@ -358,7 +371,7 @@ void esp_gattc_cb(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_ga
      * so here call each profile's callback */
     do {
         int idx;
-        for (idx = 0; idx < PROFILE_NUM; idx++) {
+        for (idx = 0; idx < MAX_DEVICES; idx++) {
             if (gattc_if == ESP_GATT_IF_NONE || /* ESP_GATT_IF_NONE, not specify a certain gatt_if, need to call every profile cb function */
                     gattc_if == profiles[idx].gattc_if) {
                 gattc_profile_callback(event, gattc_if, param);

@@ -2,10 +2,10 @@
 
 #define LED_DELAY 500 // Blink delay in milliseconds
 
-static SemaphoreHandle_t xSemaphore[PROFILE_NUM] = {NULL}; // Semaphore array for each LED
-static bool led_states[PROFILE_NUM] = {0}; // State array for each LED
-static int led_blinking[PROFILE_NUM] = {0}; // Blinking state array for each LED
-static int blink_counters[PROFILE_NUM] = {0}; // Blink count array for each LED
+static SemaphoreHandle_t xSemaphore[MAX_DEVICES] = {NULL}; // Semaphore array for each LED
+static bool led_states[MAX_DEVICES] = {0}; // State array for each LED
+static int led_blinking[MAX_DEVICES] = {0}; // Blinking state array for each LED
+static int blink_counters[MAX_DEVICES] = {0}; // Blink count array for each LED
 
 void led_blink_task(void *pvParameter)
 {
@@ -40,7 +40,7 @@ bool init_led()
 {
     esp_err_t ret;
 
-    for (int i = 0; i < PROFILE_NUM; i++)
+    for (int i = 0; i < MAX_DEVICES; i++)
     {
         ESP_LOGI(LED_TAG, "Initializing LED %d pin ...", i);
         ret = gpio_set_direction(LED_PIN + i, GPIO_MODE_OUTPUT);
@@ -78,7 +78,7 @@ bool init_led()
 
 void set_led(int led_id, bool state)
 {
-    if (led_id < 0 || led_id >= PROFILE_NUM)
+    if (led_id < 0 || led_id >= MAX_DEVICES)
     {
         ESP_LOGE(LED_TAG, "Invalid LED ID: %d", led_id);
         return;
@@ -89,7 +89,7 @@ void set_led(int led_id, bool state)
 
 bool get_led(int led_id)
 {
-    if (led_id < 0 || led_id >= PROFILE_NUM)
+    if (led_id < 0 || led_id >= MAX_DEVICES)
     {
         ESP_LOGE(LED_TAG, "Invalid LED ID: %d", led_id);
         return false;
@@ -99,7 +99,7 @@ bool get_led(int led_id)
 
 void start_led_blink(int led_id, int blink_count)
 {
-    if (led_id < 0 || led_id >= PROFILE_NUM)
+    if (led_id < 0 || led_id >= MAX_DEVICES)
     {
         ESP_LOGE(LED_TAG, "Invalid LED ID: %d", led_id);
         return;
@@ -115,7 +115,7 @@ void start_led_blink(int led_id, int blink_count)
 
 void stop_led_blink(int led_id)
 {
-    if (led_id < 0 || led_id >= PROFILE_NUM)
+    if (led_id < 0 || led_id >= MAX_DEVICES)
     {
         ESP_LOGE(LED_TAG, "Invalid LED ID: %d", led_id);
         return;

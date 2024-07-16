@@ -6,7 +6,7 @@
 #include "constants.h"
 #include "gap.h"
 #include "gattc.h"
-#include "preferences.h"
+#include "devices.h"
 #include "ui.h"
 #include "ble.h"
 
@@ -14,9 +14,9 @@
 
 void app_main(void)
 {
-    bool ret = init_preferences();
+    bool ret = init_devices();
     if (!ret) {
-        ESP_LOGE(MAIN_TAG, "Failed to initialize preferences");
+        ESP_LOGE(MAIN_TAG, "Failed to initialize devices (storage)");
         return;
     }
 

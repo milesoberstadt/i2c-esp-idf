@@ -4,14 +4,14 @@
 #include "esp_bt_defs.h"
 #include "esp_gatt_defs.h"
 
-#define PROFILE_NUM 4
+#define MAX_DEVICES 4
 #define INVALID_HANDLE   0
 
 #define REMOTE_NOTIFY_CHAR_UUID    0xFF01
 
 // led pins start from here
 #define LED_PIN GPIO_NUM_4
-// to LED_PIN + PROFILE_NUM
+// to LED_PIN + MAX_DEVICES
 
 #define LOG_LED 1
 
