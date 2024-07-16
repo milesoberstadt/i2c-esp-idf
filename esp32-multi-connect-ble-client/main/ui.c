@@ -22,6 +22,14 @@ void start_pairing() {
 
 }
 
+void reconnect_device() {
+    if (is_profile_active(selected_device)) {
+        ESP_LOGI(UI_TAG, "Can't reconnect %d, connection already in progress.", selected_device);
+        return;
+    }
+    connect_device(selected_device);
+}
+
 bool init_ui() {
 
     bool ret = init_led();
@@ -30,17 +38,32 @@ bool init_ui() {
         return false;
     }
 
-    struct button_config_t button_config = {
-        .gpio_num = BUTTON_PIN,
-        .press_callback = switch_selected_device,
+    ESP_LOGI(UI_TAG, "Initializing pair button");
+    struct button_config_t pair_button_config = {
+        .gpio_num = PAIR_BUTTON_PIN,
+        .press_callback = reconnect_device,
         .long_press_callback = start_pairing
     };
 
-    ret = init_button(&button_config);
+    ret = init_button(&pair_button_config);
     if (!ret) {
         ESP_LOGE(UI_TAG, "Failed to initialize button");
         return false;
     }
+    ESP_LOGI(UI_TAG, "Pair button initialized");
+
+    ESP_LOGI(UI_TAG, "Initializing select button");
+    struct button_config_t select_button_config = {
+        .gpio_num = SELECT_BUTTON_PIN,
+        .press_callback = switch_selected_device,
+    };
+    ret = init_button(&select_button_config);
+    if (!ret) {
+        ESP_LOGE(UI_TAG, "Failed to initialize button");
+        return false;
+    }
+
+    ESP_LOGI(UI_TAG, "Select button initialized");
 
     return true;
     

@@ -34,6 +34,7 @@ size_t get_idx_by_gattc_if(esp_gatt_if_t gattc_if) {
     return -1;
 }
 
+
 void connection_start_handler(size_t idx) {
     start_led_blink(idx, -1);
 }
@@ -44,6 +45,7 @@ void connection_end_handler(size_t idx) {
 }
 
 void connection_success_handler(size_t idx) {
+    stop_led_blink(idx);
     set_led(idx, true);
 
     bool ret = add_device(profiles[idx].remote_bda, profiles[idx].ble_addr_type, idx);
@@ -202,7 +204,6 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
             ESP_LOGI(DEVICE_TAG, "Characteritics found : %d", count);
 
             // connection process ends here until we develop the characteristics reading part
-            connection_end_handler(idx);
             connection_success_handler(idx);
 
             // if (count > 0) {
@@ -438,4 +439,8 @@ void open_profile(esp_bd_addr_t bda, esp_ble_addr_type_t ble_addr_type, size_t i
         return;
     }
 
+}
+
+bool is_profile_active(size_t idx) {
+    return profiles[idx].remote_bda[0] != 0;
 }

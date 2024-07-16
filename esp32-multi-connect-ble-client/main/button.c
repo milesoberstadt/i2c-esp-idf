@@ -55,7 +55,7 @@ bool init_button(button_config_t *config) {
     gpio_set_pull_mode(button->gpio_num, GPIO_PULLUP_ONLY);
 
     if (num_buttons == 0) {
-        xTaskCreate(button_task, "button_task", 2048, NULL, 10, NULL);
+        xTaskCreate(button_task, "button_task", 4096, NULL, 10, NULL);
     }
 
     num_buttons++;

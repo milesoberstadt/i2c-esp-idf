@@ -10,6 +10,8 @@
 #include "led.h"
 #include "button.h"
 #include "gap.h"
+#include "devices.h"
+#include "gattc.h"
 
 #define UI_TAG "UI"
 

@@ -28,7 +28,8 @@ void led_blink_task(void *pvParameter)
                 // Check if the led_blinking state has changed or blink count reached
                 if (xSemaphoreTake(xSemaphore[led_id], 0) == pdTRUE || (blink_counters[led_id] > 0 && --blink_counters[led_id] == 0))
                 {
-                    stop_led_blink(led_id);
+                    // set led to his state before blinking
+                    gpio_set_level(LED_PIN + led_id, led_states[led_id]);
                     break;
                 }
             }
@@ -84,6 +85,9 @@ void set_led(int led_id, bool state)
         return;
     }
     gpio_set_level(LED_PIN + led_id, state);
+    #if LOG_LED
+        ESP_LOGI(LED_TAG, "LED %d set to %d", led_id, state);
+    #endif
     led_states[led_id] = state;
 }
 
