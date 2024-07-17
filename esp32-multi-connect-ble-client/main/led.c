@@ -1,11 +1,10 @@
 #include "led.h"
 
-#define LED_DELAY 500 // Blink delay in milliseconds
-
 static SemaphoreHandle_t xSemaphore[MAX_DEVICES] = {NULL}; // Semaphore array for each LED
 static bool led_states[MAX_DEVICES] = {0}; // State array for each LED
 static int led_blinking[MAX_DEVICES] = {0}; // Blinking state array for each LED
 static int blink_counters[MAX_DEVICES] = {0}; // Blink count array for each LED
+static int blink_rates[MAX_DEVICES] = {0}; // Blink rate array for each LED
 
 void led_blink_task(void *pvParameter)
 {
@@ -20,10 +19,10 @@ void led_blink_task(void *pvParameter)
             while (led_blinking[led_id])
             {
                 gpio_set_level(LED_PIN + led_id, 1);
-                vTaskDelay(LED_DELAY / portTICK_PERIOD_MS); // LED on for 500ms
+                vTaskDelay(blink_rates[led_id] / portTICK_PERIOD_MS); // LED on for 500ms
 
                 gpio_set_level(LED_PIN + led_id, 0);
-                vTaskDelay(LED_DELAY / portTICK_PERIOD_MS); // LED off for 500ms
+                vTaskDelay(blink_rates[led_id] / portTICK_PERIOD_MS); // LED off for 500ms
 
                 // Check if the led_blinking state has changed or blink count reached
                 if (xSemaphoreTake(xSemaphore[led_id], 0) == pdTRUE || (blink_counters[led_id] > 0 && --blink_counters[led_id] == 0))
@@ -101,7 +100,7 @@ bool get_led(int led_id)
     return gpio_get_level(LED_PIN + led_id);
 }
 
-void start_led_blink(int led_id, int blink_count)
+void start_led_blink(int led_id, int blink_count, int blink_rate)
 {
     if (led_id < 0 || led_id >= MAX_DEVICES)
     {
@@ -111,6 +110,7 @@ void start_led_blink(int led_id, int blink_count)
 
     led_blinking[led_id]++;
     blink_counters[led_id] = blink_count;
+    blink_rates[led_id] = blink_rate;
     #if LOG_LED
         ESP_LOGI(LED_TAG, "LED %d blinking started (%d)", led_id, led_blinking[led_id]);
     #endif

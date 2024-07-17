@@ -22,7 +22,7 @@ void scan_started_handler() {
         return;
     }
     is_scanning = true;
-    start_led_blink(get_selected_device(), -1);
+    start_led_blink(get_selected_device(), -1, 500);
 }
 
 void scan_ended_handler() {

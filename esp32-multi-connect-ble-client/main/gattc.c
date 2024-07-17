@@ -36,7 +36,7 @@ size_t get_idx_by_gattc_if(esp_gatt_if_t gattc_if) {
 
 
 void connection_start_handler(size_t idx) {
-    start_led_blink(idx, -1);
+    start_led_blink(idx, -1, 300);
 }
 
 void connection_end_handler(size_t idx) {
