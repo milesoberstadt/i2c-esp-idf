@@ -34,6 +34,10 @@
 #define USE_BUTTON 1
 #define BUTTON_PIN 0
 
+/* ANEMOMETER SENSOR PIN */
+
+#define ANEMOMETER_PIN 1
+
 /* LED */
 
 #define LED_PIN LED_BUILTIN
@@ -44,12 +48,21 @@
   BLEService dataService(M_NODE_SERVICE_UUID); 
   BLECharacteristic gyroCharacteristic(GYRO_UUID, BLERead | BLENotify, 100);
   BLECharacteristic accelCharacterictic(ACCEL_UUID, BLERead | BLENotify, 100);
+  // Create a instance of class LSM6DS3
+  LSM6DS3 myIMU(I2C_MODE, 0x6A);    // I2C device address 0x6A
+#endif
+
+#if NODE_TYPE == A_NODE
+  BLEService dataService(A_NODE_SERVICE_UUID);
+  BLECharacteristic windCharacteristic(WIND_UUID, BLERead | BLENotify, 100);
+  int sensorValue = 0;
+  float sensorVoltage = 0;
+  float windSpeed = 0;
+  const float referenceVoltage = 5.0;  // (0-5V)
+  const float maxWindSpeed = 30.0;     // (0-30 m/s)
 #endif
 
 bool isAdvertising = false;
-
-// Create a instance of class LSM6DS3
-LSM6DS3 myIMU(I2C_MODE, 0x6A);    // I2C device address 0x6A
 
 void setup() {
   pinMode(LED_PIN, OUTPUT);
@@ -59,11 +72,28 @@ void setup() {
 
   Serial.begin(9600);
 
-  if (myIMU.begin() != 0) {
-      Serial.println("IMU error");
-  } else {
-      Serial.println("IMU OK!");
-  }
+  /* M_NODE SETUP */
+  #if NODE_TYPE == M_NODE
+    if (myIMU.begin() != 0) {
+        Serial.println("IMU error");
+    } else {
+        Serial.println("IMU OK!");
+    }
+    dataService.addCharacteristic(gyroCharacteristic);
+    dataService.addCharacteristic(accelCharacterictic);
+  #endif
+
+  /* A_NODE SETUP */
+  #if NODE_TYPE == A_NODE
+    // Read initial value from anemometer sensor
+    sensorValue = analogRead(ANEMOMETER_PIN);
+    if (sensorValue == 0) {
+      Serial.println("Anemometer error");
+    } else {
+      Serial.println("Anemometer OK!");
+    }
+    dataService.addCharacteristic(windCharacteristic);
+  #endif
   
   if (!BLE.begin()) {
     Serial.println("- Starting Bluetooth® Low Energy module failed!");
@@ -72,8 +102,6 @@ void setup() {
 
   BLE.setLocalName("XIAO BLE Sense (Peripheral)");
   BLE.setAdvertisedService(dataService);
-  dataService.addCharacteristic(gyroCharacteristic);
-  dataService.addCharacteristic(accelCharacterictic);
   BLE.addService(dataService);
   BLE.poll();
 
@@ -98,19 +126,37 @@ void loop() {
       while (central.connected()) {
         digitalWrite(LED_PIN, LOW);
 
-        char gyro[100];
-        sprintf(gyro, "%.2f;%.2f;%.2f", myIMU.readFloatGyroX(), myIMU.readFloatGyroY(), myIMU.readFloatGyroZ());
-        gyroCharacteristic.writeValue(gyro);
-        Serial.println(gyro);
+        /* M_NODE SENDING DATA */
 
-        char accelerometer[100];
-        sprintf(accelerometer, "%.2f;%.2f;%.2f", myIMU.readFloatAccelX(), myIMU.readFloatAccelY(), myIMU.readFloatAccelZ());
-        accelCharacterictic.writeValue(accelerometer);
-        Serial.println(accelerometer);
+        #if NODE_TYPE == M_NODE
+          char gyro[100];
+          sprintf(gyro, "%.2f;%.2f;%.2f", myIMU.readFloatGyroX(), myIMU.readFloatGyroY(), myIMU.readFloatGyroZ());
+          gyroCharacteristic.writeValue(gyro);
+          Serial.println(gyro);
+
+          char accelerometer[100];
+          sprintf(accelerometer, "%.2f;%.2f;%.2f", myIMU.readFloatAccelX(), myIMU.readFloatAccelY(), myIMU.readFloatAccelZ());
+          accelCharacterictic.writeValue(accelerometer);
+          Serial.println(accelerometer);
+        #endif
 
         delay(1000 / SEND_INTERVAL);
       }
       
+      /* A_NODE SENDING DATA */
+
+      #if NODE_TYPE == A_NODE
+        // Read
+        sensorValue = analogRead(ANEMOMETER_PIN);
+        sensorVoltage = sensorValue * (referenceVoltage / 1023.0);
+        windSpeed = (sensorVoltage / referenceVoltage) * maxWindSpeed;
+
+        // Format and send data
+        char windSpeedData[100];
+        sprintf(windSpeedData, "%.2f;%.2f;%.2f", (float)sensorValue, sensorVoltage, windSpeed);
+        windCharacteristic.writeValue(windSpeedData);
+        Serial.print(windSpeedData);
+      #endif
       Serial.println("* Disconnected from central device!");
     } 
 
