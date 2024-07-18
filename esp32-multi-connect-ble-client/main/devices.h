@@ -13,6 +13,8 @@
 #include "constants.h"
 #include "preferences.h"
 #include "gattc.h"
+#include "device_config.h"
+#include "types.h"
 
 #define DEVICES_TAG "DEVICES"
 
@@ -22,30 +24,19 @@
 
 #define DEVICE_COUNT_KEY "dev_count"
 
-typedef struct device {
-    esp_bd_addr_t bda;
-    esp_ble_addr_type_t ble_addr_type;
-} device;
-
 bool init_devices();
 
 void generate_device_key(size_t idx, char *tag, char* suffix);
 
 bool device_exists(size_t idx);
 
-bool add_device(esp_bd_addr_t bda, esp_ble_addr_type_t ble_addr_type, size_t idx);
+bool add_device(esp_bd_addr_t bda, esp_ble_addr_type_t ble_addr_type, size_t device_type, size_t idx);
 
 bool remove_device(size_t idx);
 
 size_t get_device_count();
 
-// void allocate_devices(device **devices, size_t count);
-
-bool get_device(size_t idx, device *dev);
-
-// size_t get_devices(device *devices);
-
-// void free_devices(device *devices, size_t count);
+bool get_device(size_t idx, device_t *dev);
 
 void connect_device(size_t idx);
 

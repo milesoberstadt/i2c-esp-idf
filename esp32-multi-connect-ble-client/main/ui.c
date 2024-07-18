@@ -39,7 +39,7 @@ bool init_ui() {
     }
 
     ESP_LOGI(UI_TAG, "Initializing pair button");
-    struct button_config_t pair_button_config = {
+    button_config_t pair_button_config = {
         .gpio_num = PAIR_BUTTON_PIN,
         .press_callback = reconnect_device,
         .long_press_callback = start_pairing
@@ -53,7 +53,7 @@ bool init_ui() {
     ESP_LOGI(UI_TAG, "Pair button initialized");
 
     ESP_LOGI(UI_TAG, "Initializing select button");
-    struct button_config_t select_button_config = {
+    button_config_t select_button_config = {
         .gpio_num = SELECT_BUTTON_PIN,
         .press_callback = switch_selected_device,
     };

@@ -16,7 +16,7 @@ static void button_task(void *param) {
                 button->is_pressed = false;
                 TickType_t press_duration = xTaskGetTickCount() - button->press_start_time;
 
-                if (press_duration >= pdMS_TO_TICKS(DEBOUNCE_TIME_MS)) {
+                if (press_duration >= pdMS_TO_TICKS(BUTTON_DEBOUNCE_TIME)) {
                     if (press_duration >= pdMS_TO_TICKS(1000)) {
                         if (button->long_press_callback) {
                             button->long_press_callback();

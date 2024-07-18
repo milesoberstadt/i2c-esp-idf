@@ -49,19 +49,21 @@ void handle_scan_result(esp_ble_gap_cb_param_t *scan_result) {
 
                 ESP_LOGI(GAP_TAG, "Service UUID found in advertisement data:");
                 esp_log_buffer_hex(GAP_TAG, service_uuid, ESP_UUID_LEN_128);
-                
-                if (!compare_uuid(remote_service_uuid.uuid.uuid128, service_uuid)) {
+
+                device_type_t type = get_device_type_from_uuid(service_uuid);
+
+                if (type == UNKNOWN_DEVICE) {
                     ESP_LOGI(GAP_TAG, "Service UUID not matching with the remote service UUID.");
                     // todo : maybe stop analysing this device
                     break;
                 }
-
-                ESP_LOGI(GAP_TAG, "MATCHING UUID SERVICE FOUND.");
+                
+                ESP_LOGI(GAP_TAG, "Device service uuid matching with device type %d", type);
 
                 // service uuid is matching, start gattc
                 esp_ble_gap_stop_scanning();
 
-                open_profile(scan_result->scan_rst.bda, scan_result->scan_rst.ble_addr_type, get_selected_device());
+                open_profile(scan_result->scan_rst.bda, scan_result->scan_rst.ble_addr_type, get_selected_device(), type);
 
             } 
 

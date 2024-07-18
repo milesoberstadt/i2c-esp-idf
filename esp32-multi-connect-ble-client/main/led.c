@@ -19,10 +19,10 @@ void led_blink_task(void *pvParameter)
             while (led_blinking[led_id])
             {
                 gpio_set_level(LED_PIN + led_id, 1);
-                vTaskDelay(blink_rates[led_id] / portTICK_PERIOD_MS); // LED on for 500ms
+                vTaskDelay(blink_rates[led_id] / portTICK_PERIOD_MS);
 
                 gpio_set_level(LED_PIN + led_id, 0);
-                vTaskDelay(blink_rates[led_id] / portTICK_PERIOD_MS); // LED off for 500ms
+                vTaskDelay(blink_rates[led_id] / portTICK_PERIOD_MS);
 
                 // Check if the led_blinking state has changed or blink count reached
                 if (xSemaphoreTake(xSemaphore[led_id], 0) == pdTRUE || (blink_counters[led_id] > 0 && --blink_counters[led_id] == 0))

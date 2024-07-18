@@ -20,14 +20,10 @@
 
 #define PREFERENCES_PARTITION "MCBC"
 
-enum DeviceType {
-    DEVICE_A_NODE,
-    DEVICE_M_NODE,
-    DEVICE_SLIPPER,
-};
+#define BUTTON_DEBOUNCE_TIME 50 // ms
 
 // 19b10000-e8f2-537e-4f6c-d104768a1214
-static esp_bt_uuid_t remote_service_uuid = {
+static esp_bt_uuid_t UUID_M_NODE = {
     .len = ESP_UUID_LEN_128,
     .uuid = {.uuid128 = {
         0x14, 0x12, 0x8a, 0x76, 
@@ -41,7 +37,7 @@ static esp_bt_uuid_t remote_service_uuid = {
 };
 
 // 31d31ed5-aa9b-4325-b011-25caa3765c2a
-static esp_bt_uuid_t remote_gyro_uuid = {
+static esp_bt_uuid_t UUID_GYRO_CHAR = {
     .len = ESP_UUID_LEN_128,
     .uuid = {.uuid128 = {
         0x2a, 0x5c, 0x76, 0xa3, 
@@ -55,7 +51,7 @@ static esp_bt_uuid_t remote_gyro_uuid = {
 };
 
 // bcd6dfbe-0c7b-4530-a5b3-ecd2ed69ff4f
-static esp_bt_uuid_t remote_accel_uuid = {
+static esp_bt_uuid_t UUID_ACCEL_CHAR = {
     .len = ESP_UUID_LEN_128,
     .uuid = {.uuid128 = {
         0x4f, 0xff, 0x69, 0xed, 

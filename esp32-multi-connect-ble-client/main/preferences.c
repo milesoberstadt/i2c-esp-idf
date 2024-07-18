@@ -116,7 +116,7 @@ bool remove_preference(const char *key) {
   return true;
 }
 
-PreferenceType getType(const char *key) {
+preference_t get_preference_type(const char *key) {
   if (!key || strlen(key) > 15) {
     return PT_INVALID;
   }
@@ -162,6 +162,6 @@ PreferenceType getType(const char *key) {
   return PT_INVALID;
 }
 
-bool isKey(const char *key) {
-  return getType(key) != PT_INVALID;
+bool is_preference_key(const char *key) {
+  return get_preference_type(key) != PT_INVALID;
 }

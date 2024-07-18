@@ -10,15 +10,18 @@
 #include "esp_gap_ble_api.h"
 #include "esp_check.h"
 
+#include "device_config.h"
 #include "constants.h"
 #include "uuid128.h"
 #include "gattc.h"
+#include "data.h"
 #include "led.h"
 #include "ui.h"
 
 #define GAP_TAG "ESP32_MCBC_GAP"
 
 bool init_gap();
+
 void start_scan();
 
 bool get_is_scanning();

@@ -5,23 +5,30 @@ void generate_device_key(size_t idx, char *tag, char* suffix) {
 }
 
 bool init_devices() {
+
+    bool ret = init_device_config();
+    if (!ret) {
+        ESP_LOGE(DEVICES_TAG, "Error initializing device config");
+        return false;
+    }
+
     return init_preferences();
 }
 
 bool device_exists(size_t idx) {
     char addr_key[DEVICE_KEY_SIZE];
     generate_device_key(idx, addr_key, "addr");
-    return isKey(addr_key);
+    return is_preference_key(addr_key);
 }
 
-bool add_device(esp_bd_addr_t bda, esp_ble_addr_type_t ble_addr_type, size_t idx) {
+bool add_device(esp_bd_addr_t bda, esp_ble_addr_type_t ble_addr_type, size_t device_type, size_t idx) {
 
     char addr_key[DEVICE_KEY_SIZE];
     generate_device_key(idx, addr_key, "addr");
 
-    if (isKey(addr_key)) {
+    if (is_preference_key(addr_key)) {
     
-        device dev;
+        device_t dev;
         bool ret = get_device(idx, &dev);
         if (!ret) {
             ESP_LOGE(DEVICES_TAG, "Can't read existing device at idx %d. Can't override.", idx);
@@ -48,10 +55,18 @@ bool add_device(esp_bd_addr_t bda, esp_ble_addr_type_t ble_addr_type, size_t idx
     }
 
     char type_key[DEVICE_KEY_SIZE];
-    generate_device_key(idx, type_key, "type");
+    generate_device_key(idx, type_key, "bl_t");
     ret = put_int(type_key, ble_addr_type);
     if (!ret) {
         ESP_LOGE(DEVICES_TAG, "Error adding device idx %d (type)", idx);
+        return false;
+    }
+
+    char device_type_key[DEVICE_KEY_SIZE];
+    generate_device_key(idx, device_type_key, "dv_t");
+    ret = put_int(device_type_key, device_type);
+    if (!ret) {
+        ESP_LOGE(DEVICES_TAG, "Error adding device idx %d (device type)", idx);
         return false;
     }
 
@@ -72,7 +87,7 @@ bool remove_device(size_t idx) {
 
     char addr_key[DEVICE_KEY_SIZE];
     generate_device_key(idx, addr_key, "addr");
-    if (!isKey(addr_key)) {
+    if (!is_preference_key(addr_key)) {
         ESP_LOGE(DEVICES_TAG, "Can't remove device idx %d, device doesn't exist", idx);
         return false;
     }
@@ -84,10 +99,17 @@ bool remove_device(size_t idx) {
     }
 
     char type_key[DEVICE_KEY_SIZE];
-    generate_device_key(idx, type_key, "type");
+    generate_device_key(idx, type_key, "bl_t");
     ret = remove_preference(type_key);
     if (!ret) {
         ESP_LOGE(DEVICES_TAG, "Error removing device idx %d (type)", idx);
+    }
+
+    char device_type_key[DEVICE_KEY_SIZE];
+    generate_device_key(idx, device_type_key, "dv_t");
+    ret = remove_preference(device_type_key);
+    if (!ret) {
+        ESP_LOGE(DEVICES_TAG, "Error removing device idx %d (device type)", idx);
     }
 
     size_t dev_count = get_device_count();
@@ -106,7 +128,7 @@ size_t get_device_count() {
     return get_int(DEVICE_COUNT_KEY, 0);
 }
 
-bool get_device(size_t idx, device *dev) {
+bool get_device(size_t idx, device_t *dev) {
 
     char addr_key[DEVICE_KEY_SIZE];
     generate_device_key(idx, addr_key, "addr");
@@ -123,59 +145,32 @@ bool get_device(size_t idx, device *dev) {
     }
 
     char type_key[DEVICE_KEY_SIZE];
-    generate_device_key(idx, type_key, "type");
+    generate_device_key(idx, type_key, "bl_t");
     int32_t ble_addr_type = get_int(type_key, -1);
     if (ble_addr_type == -1) {
         ESP_LOGE(DEVICES_TAG, "Error reading device idx %d (type)", idx);
         return false;
     }
 
+    char device_type_key[DEVICE_KEY_SIZE];
+    generate_device_key(idx, device_type_key, "dv_t");
+    int32_t device_type = get_int(device_type_key, -1);
+    if (device_type == -1) {
+        ESP_LOGE(DEVICES_TAG, "Error reading device idx %d (device type)", idx);
+        return false;
+    }
+
     memcpy(dev->bda, bda, sizeof(esp_bd_addr_t));
     dev->ble_addr_type = ble_addr_type;
+    dev->device_type = device_type;
 
     return true;
 
 }
 
-// size_t get_devices(device *devices) {
-
-//     size_t dev_count = get_device_count();
-//     if (!dev_count) {
-//         return 0;
-//     }
-
-//     for (size_t i = 0; i < dev_count; i++) {
-//         device dev;
-//         bool res = get_device(i, &dev);
-//         if (!res) {
-//             ESP_LOGE(DEVICES_TAG, "Error reading device idx %d", i);
-//             return 0;
-//         }
-//         devices[i] = dev;
-//     }
-
-//     return dev_count;
-
-// }
-
-// void allocate_devices(device **devices, size_t count) {
-//     *devices = (device *)malloc(count * sizeof(device));
-//     if (*devices == NULL) {
-//         ESP_LOGE(DEVICES_TAG, "Error allocating memory for devices array.");
-//         return;
-//     }
-
-//     ESP_LOGI(DEVICES_TAG, "Allocated memory for devices array.");
-// }
-
-// void free_devices(device *devices, size_t count) {
-//     free(devices);
-//     ESP_LOGI(DEVICES_TAG, "Freed memory for devices array.");
-// }
-
 void connect_device(size_t idx) {
 
-    device dev;
+    device_t dev;
     bool ret = get_device(idx, &dev);
 
     if (!ret) {
@@ -185,7 +180,7 @@ void connect_device(size_t idx) {
 
     ESP_LOGI(DEVICES_TAG, "Connecting to device idx %d", idx);
     
-    open_profile(dev.bda, dev.ble_addr_type, idx);
+    open_profile(dev.bda, dev.ble_addr_type, idx, dev.device_type);
 
 }
 
@@ -205,7 +200,7 @@ void connect_all_devices() {
 
 bool update_device_bda(size_t idx, esp_bd_addr_t bda) {
     
-        device dev;
+        device_t dev;
         bool ret = get_device(idx, &dev);
         if (!ret) {
             ESP_LOGE(DEVICES_TAG, "Error reading device idx %d", idx);
