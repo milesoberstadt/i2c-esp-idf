@@ -3,14 +3,14 @@
 #include "Wire.h"
 #include <stdio.h>
 
-/* NODE TYPES */
+/* --- NODE TYPE --- */
 #define M_NODE 1
 #define A_NODE 2
 
 /* Change this value to compile a node */
-#define NODE_TYPE M_NODE
+#define NODE_TYPE A_NODE
 
-/* UUIDS */
+/* --- UUIDS --- */
 
 // M-Node
 #define M_NODE_SERVICE_UUID "19b10000-e8f2-537e-4f6c-d104768a1214"
@@ -22,27 +22,27 @@
 #define WIND_UUID "e2238e3b-702c-406f-bd63-b3e977307e1e"
 
 
-/* TIME & DURATIONS */
+/* --- TIME & DURATIONS --- */
 
 #define DISCOVERY_INTERVAL 1000 // Ms
 #define DISCOVERY_DURATION 30 //seconds
 #define SEND_INTERVAL 10 // Hz
 
-/* BUTTON */
+/* --- BUTTON --- */
 
 // if button is disabled, the nRF will always advertise when not connected
-#define USE_BUTTON 1
+#define USE_BUTTON 0
 #define BUTTON_PIN 0
 
-/* ANEMOMETER SENSOR PIN */
+/* --- ANEMOMETER SENSOR PIN --- */
 
 #define ANEMOMETER_PIN 1
 
-/* LED */
+/* --- LED --- */
 
 #define LED_PIN LED_BUILTIN
 
-/* Program start */
+/* --- Program start --- */
 
 #if NODE_TYPE == M_NODE
   BLEService dataService(M_NODE_SERVICE_UUID); 
@@ -140,23 +140,24 @@ void loop() {
           Serial.println(accelerometer);
         #endif
 
+        #if NODE_TYPE == A_NODE
+          // Read
+          sensorValue = analogRead(ANEMOMETER_PIN);
+          sensorVoltage = sensorValue * (referenceVoltage / 1023.0);
+          windSpeed = (sensorVoltage / referenceVoltage) * maxWindSpeed;
+
+          // Format and send data
+          char windSpeedData[100];
+          sprintf(windSpeedData, "%.2f;%.2f;%.2f", (float)sensorValue, sensorVoltage, windSpeed);
+          windCharacteristic.writeValue(windSpeedData);
+          Serial.print(windSpeedData);
+        #endif
+
         delay(1000 / SEND_INTERVAL);
       }
       
       /* A_NODE SENDING DATA */
 
-      #if NODE_TYPE == A_NODE
-        // Read
-        sensorValue = analogRead(ANEMOMETER_PIN);
-        sensorVoltage = sensorValue * (referenceVoltage / 1023.0);
-        windSpeed = (sensorVoltage / referenceVoltage) * maxWindSpeed;
-
-        // Format and send data
-        char windSpeedData[100];
-        sprintf(windSpeedData, "%.2f;%.2f;%.2f", (float)sensorValue, sensorVoltage, windSpeed);
-        windCharacteristic.writeValue(windSpeedData);
-        Serial.print(windSpeedData);
-      #endif
       Serial.println("* Disconnected from central device!");
     } 
 
