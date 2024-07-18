@@ -3,11 +3,24 @@
 #include "Wire.h"
 #include <stdio.h>
 
+/* NODE TYPES */
+#define M_NODE 1
+#define A_NODE 2
+
+/* Change this value to compile a node */
+#define NODE_TYPE M_NODE
+
 /* UUIDS */
 
-#define SERVICE_UUID "19b10000-e8f2-537e-4f6c-d104768a1214"
+// M-Node
+#define M_NODE_SERVICE_UUID "19b10000-e8f2-537e-4f6c-d104768a1214"
 #define GYRO_UUID "31d31ed5-aa9b-4325-b011-25caa3765c2a"
 #define ACCEL_UUID "bcd6dfbe-0c7b-4530-a5b3-ecd2ed69ff4f"
+
+// A-Node
+#define A_NODE_SERVICE_UUID "0c7e1964-3616-4132-bbab-86afff1d9654"
+#define WIND_UUID "e2238e3b-702c-406f-bd63-b3e977307e1e"
+
 
 /* TIME & DURATIONS */
 
@@ -25,9 +38,13 @@
 
 #define LED_PIN LED_BUILTIN
 
-BLEService dataService(SERVICE_UUID); 
-BLECharacteristic gyroCharacteristic(GYRO_UUID, BLERead | BLENotify, 100);
-BLECharacteristic accelCharacterictic(ACCEL_UUID, BLERead | BLENotify, 100);
+/* Program start */
+
+#if NODE_TYPE == M_NODE
+  BLEService dataService(M_NODE_SERVICE_UUID); 
+  BLECharacteristic gyroCharacteristic(GYRO_UUID, BLERead | BLENotify, 100);
+  BLECharacteristic accelCharacterictic(ACCEL_UUID, BLERead | BLENotify, 100);
+#endif
 
 bool isAdvertising = false;
 
