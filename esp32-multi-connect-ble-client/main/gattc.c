@@ -152,8 +152,7 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
         ret = esp_ble_gattc_search_service(
             gattc_if, 
             param->cfg_mtu.conn_id, 
-            // todo : restore remote service uuid
-            NULL// &remote_service_uuid
+            &remote_service_uuid
         );
         
         if (ret){
@@ -165,10 +164,7 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
         // ESP_LOGI(DEVICE_TAG, "Service search result : conn_id = %x is primary service %d", p_data->search_res.conn_id, p_data->search_res.is_primary);
         // ESP_LOGI(DEVICE_TAG, "start handle %d end handle %d current handle value %d", p_data->search_res.start_handle, p_data->search_res.end_handle, p_data->search_res.srvc_id.inst_id);
 
-        uint8_t reversed_uuid[ESP_UUID_LEN_128];
-        reverse_uuid(p_data->search_res.srvc_id.uuid.uuid.uuid128, reversed_uuid);    
-
-        if (p_data->search_res.srvc_id.uuid.len == ESP_UUID_LEN_128 && compare_uuid(remote_service_uuid.uuid.uuid128, reversed_uuid)) {
+        if (p_data->search_res.srvc_id.uuid.len == ESP_UUID_LEN_128 && compare_uuid(remote_service_uuid.uuid.uuid128, p_data->search_res.srvc_id.uuid.uuid.uuid128)) {
             ESP_LOGI(DEVICE_TAG, "MATCHING SERVICE FOUND");
             profiles[idx].service_start_handle = p_data->search_res.start_handle;
             profiles[idx].service_end_handle = p_data->search_res.end_handle;
@@ -183,11 +179,14 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
         ESP_LOGI(DEVICE_TAG, "Service search completed: conn_id = %x, status %d", p_data->search_cmpl.conn_id, p_data->search_cmpl.status);
 
         if (p_data->search_cmpl.status != ESP_GATT_OK){
-            ESP_LOGE(DEVICE_TAG, "search service failed, error status = %x", p_data->search_cmpl.status);
+            ESP_LOGE(DEVICE_TAG, "search service failed, error status = %d", p_data->search_cmpl.status);
             disconnected_handler(idx);
             break;
         }
         if (profiles[idx].discovered){
+
+            ESP_LOGI(DEVICE_TAG, "Service found, looking for characteristics");
+
             uint16_t count = 0;
             esp_gatt_status_t status = esp_ble_gattc_get_attr_count( gattc_if,
                                                                      p_data->search_cmpl.conn_id,
@@ -198,59 +197,66 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
                                                                      &count);
             if (status != ESP_GATT_OK){
                 ESP_LOGE(DEVICE_TAG, "esp_ble_gattc_get_attr_count error");
+                disconnected_handler(idx);
                 break;
             }
 
             ESP_LOGI(DEVICE_TAG, "Characteritics found : %d", count);
 
-            // connection process ends here until we develop the characteristics reading part
-            connection_success_handler(idx);
+            if (count > 0) {
 
-            // if (count > 0) {
+                esp_gattc_char_elem_t *char_result = (esp_gattc_char_elem_t *)malloc(sizeof(esp_gattc_char_elem_t) * count);
 
-            //     char_elem_result_a = (esp_gattc_char_elem_t *)malloc(sizeof(esp_gattc_char_elem_t) * count);
-            //     if (!char_elem_result_a){
-            //         ESP_LOGE(DEVICE_TAG, "gattc no mem");
-            //         break;
-            //     }else {
-            //         status = esp_ble_gattc_get_char_by_uuid( gattc_if,
-            //                                                  p_data->search_cmpl.conn_id,
-            //                                                  profiles[idx].service_start_handle,
-            //                                                  profiles[idx].service_end_handle,
-            //                                                  remote_filter_char_uuid,
-            //                                                  char_elem_result_a,
-            //                                                  &count);
-            //         if (status != ESP_GATT_OK){
-            //             ESP_LOGE(DEVICE_TAG, "esp_ble_gattc_get_char_by_uuid error");
-            //             free(char_elem_result_a);
-            //             char_elem_result_a = NULL;
-            //             break;
-            //         }
+                if (!char_result){
+                    ESP_LOGE(DEVICE_TAG, "gattc no mem");
+                    disconnected_handler(idx);
+                    break;
+                }else {
 
-            //         /*  Every service have only one char in our 'ESP_GATTS_DEMO' demo, so we used first 'char_elem_result' */
-            //         if (count > 0 && (char_elem_result_a[0].properties & ESP_GATT_CHAR_PROP_BIT_NOTIFY)){
-            //             profiles[idx].char_handle = char_elem_result_a[0].char_handle;
-            //             esp_ble_gattc_register_for_notify (gattc_if, profiles[idx].remote_bda, char_elem_result_a[0].char_handle);
-            //         }
-            //     }
-            //     /* free char_elem_result */
-            //     free(char_elem_result_a);
-            //     char_elem_result_a = NULL;
+                    status = esp_ble_gattc_get_char_by_uuid(gattc_if,
+                                                            p_data->search_cmpl.conn_id,
+                                                            profiles[idx].service_start_handle,
+                                                            profiles[idx].service_end_handle,
+                                                            remote_gyro_uuid,
+                                                            char_result,
+                                                            &count);
 
-            // } else {
+                    if (status != ESP_GATT_OK){
+                        ESP_LOGE(DEVICE_TAG, "esp_ble_gattc_get_char_by_uuid error, error status = %x", status);
+                        free(char_result);
+                        char_result = NULL;
+                        disconnected_handler(idx);
+                        break;
+                    }
 
-            //     ESP_LOGE(DEVICE_TAG, "no char found");
+                    ESP_LOGI(DEVICE_TAG, "char_handle %d char property %x", char_result[0].char_handle, char_result[0].properties);
 
-            // }
+                    /*  Every service have only one char in our 'ESP_GATTS_DEMO' demo, so we used first 'char_elem_result' */
+                    if (count > 0 && (char_result[0].properties & ESP_GATT_CHAR_PROP_BIT_NOTIFY)){
+                        ESP_LOGI(DEVICE_TAG, "char property has notify");
+                        profiles[idx].char_handle = char_result[0].char_handle;
+                        esp_ble_gattc_register_for_notify (gattc_if, profiles[idx].remote_bda, char_result[0].char_handle);
+                    } else {
+                        ESP_LOGE(DEVICE_TAG, "no char property has notify");
+                        disconnected_handler(idx);
+                    }
+                }
+                free(char_result);
+            } else {
+                ESP_LOGE(DEVICE_TAG, "no char found");
+                disconnected_handler(idx);
+            }
         }
         break;
     case ESP_GATTC_REG_FOR_NOTIFY_EVT: {
         if (p_data->reg_for_notify.status != ESP_GATT_OK){
             ESP_LOGE(DEVICE_TAG, "reg notify failed, error status =%x", p_data->reg_for_notify.status);
+            disconnected_handler(idx);
             break;
         }
         uint16_t count = 0;
         uint16_t notify_en = 1;
+        ESP_LOGI(DEVICE_TAG, "Registering notify ...");
         esp_gatt_status_t ret_status = esp_ble_gattc_get_attr_count( gattc_if,
                                                                      profiles[idx].conn_id,
                                                                      ESP_GATT_DB_DESCRIPTOR,
@@ -260,44 +266,51 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
                                                                      &count);
         if (ret_status != ESP_GATT_OK){
             ESP_LOGE(DEVICE_TAG, "esp_ble_gattc_get_attr_count error");
+            disconnected_handler(idx);
         }
-        // if (count > 0){
-        //     descr_elem_result_a = (esp_gattc_descr_elem_t *)malloc(sizeof(esp_gattc_descr_elem_t) * count);
-        //     if (!descr_elem_result_a){
-        //         ESP_LOGE(DEVICE_TAG, "malloc error, gattc no mem");
-        //     }else{
-        //         ret_status = esp_ble_gattc_get_descr_by_char_handle( gattc_if,
-        //                                                              profiles[idx].conn_id,
-        //                                                              p_data->reg_for_notify.handle,
-        //                                                              notify_descr_uuid,
-        //                                                              descr_elem_result_a,
-        //                                                              &count);
-        //         if (ret_status != ESP_GATT_OK){
-        //             ESP_LOGE(DEVICE_TAG, "esp_ble_gattc_get_descr_by_char_handle error");
-        //         }
+        if (count > 0){
+            esp_gattc_descr_elem_t* descr_result = (esp_gattc_descr_elem_t *)malloc(sizeof(esp_gattc_descr_elem_t) * count);
+            if (!descr_result){
+                ESP_LOGE(DEVICE_TAG, "malloc error, gattc no mem");
+                disconnected_handler(idx);
+            }else{
+                ESP_LOGI(DEVICE_TAG, "Getting attribute descriptor %d", count);
+                ret_status = esp_ble_gattc_get_descr_by_char_handle( gattc_if,
+                                                                     profiles[idx].conn_id,
+                                                                     p_data->reg_for_notify.handle,
+                                                                     notify_descr_uuid,
+                                                                     descr_result,
+                                                                     &count);
+                if (ret_status != ESP_GATT_OK){
+                    ESP_LOGE(DEVICE_TAG, "esp_ble_gattc_get_descr_by_char_handle error");
+                    disconnected_handler(idx);
+                }
 
-        //         /* Every char has only one descriptor in our 'ESP_GATTS_DEMO' demo, so we used first 'descr_elem_result' */
-        //         if (count > 0 && descr_elem_result_a[0].uuid.len == ESP_UUID_LEN_16 && descr_elem_result_a[0].uuid.uuid.uuid16 == ESP_GATT_UUID_CHAR_CLIENT_CONFIG){
-        //             ret_status = esp_ble_gattc_write_char_descr( gattc_if,
-        //                                                          profiles[idx].conn_id,
-        //                                                          descr_elem_result_a[0].handle,
-        //                                                          sizeof(notify_en),
-        //                                                          (uint8_t *)&notify_en,
-        //                                                          ESP_GATT_WRITE_TYPE_RSP,
-        //                                                          ESP_GATT_AUTH_REQ_NONE);
-        //         }
+                /* Every char has only one descriptor in our 'ESP_GATTS_DEMO' demo, so we used first 'descr_elem_result' */
+                ESP_LOGI(DEVICE_TAG, "descr_handle %d descr uuid %x", descr_result[0].handle, descr_result[0].uuid.len);
+                if (count > 0 && descr_result[0].uuid.len == ESP_UUID_LEN_16 && descr_result[0].uuid.uuid.uuid16 == ESP_GATT_UUID_CHAR_CLIENT_CONFIG){
+                    ESP_LOGI(DEVICE_TAG, "Writing notify descr");
+                    ret_status = esp_ble_gattc_write_char_descr( gattc_if,
+                                                                 profiles[idx].conn_id,
+                                                                 descr_result[0].handle,
+                                                                 sizeof(notify_en),
+                                                                 (uint8_t *)&notify_en,
+                                                                 ESP_GATT_WRITE_TYPE_RSP,
+                                                                 ESP_GATT_AUTH_REQ_NONE);
+                }
 
-        //         if (ret_status != ESP_GATT_OK){
-        //             ESP_LOGE(DEVICE_TAG, "esp_ble_gattc_write_char_descr error");
-        //         }
+                if (ret_status != ESP_GATT_OK){
+                    ESP_LOGE(DEVICE_TAG, "esp_ble_gattc_write_char_descr error");
+                    disconnected_handler(idx);
+                }
 
-        //         /* free descr_elem_result */
-        //         free(descr_elem_result_a);
-        //     }
-        // }
-        // else{
-        //     ESP_LOGE(DEVICE_TAG, "decsr not found");
-        // }
+                free(descr_result);
+            }
+        }
+        else{
+            ESP_LOGE(DEVICE_TAG, "decsr not found");
+            disconnected_handler(idx);
+        }
         break;
     }
     case ESP_GATTC_NOTIFY_EVT:
@@ -307,29 +320,32 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
     case ESP_GATTC_WRITE_DESCR_EVT:
         if (p_data->write.status != ESP_GATT_OK){
             ESP_LOGE(DEVICE_TAG, "write descr failed, error status = %x", p_data->write.status);
+            disconnected_handler(idx);
             break;
         }
         ESP_LOGI(DEVICE_TAG, "write descr success");
-        uint8_t write_char_data[35];
-        for (int i = 0; i < sizeof(write_char_data); ++i)
-        {
-            write_char_data[i] = i % 256;
-        }
-        esp_ble_gattc_write_char( gattc_if,
-                                  profiles[idx].conn_id,
-                                  profiles[idx].char_handle,
-                                  sizeof(write_char_data),
-                                  write_char_data,
-                                  ESP_GATT_WRITE_TYPE_RSP,
-                                  ESP_GATT_AUTH_REQ_NONE);
+        connection_success_handler(idx);
+
+        // uint8_t write_char_data[35];
+        // for (int i = 0; i < sizeof(write_char_data); ++i)
+        // {
+        //     write_char_data[i] = i % 256;
+        // }
+        // esp_ble_gattc_write_char( gattc_if,
+        //                           profiles[idx].conn_id,
+        //                           profiles[idx].char_handle,
+        //                           sizeof(write_char_data),
+        //                           write_char_data,
+        //                           ESP_GATT_WRITE_TYPE_RSP,
+        //                           ESP_GATT_AUTH_REQ_NONE);
         break;
-    case ESP_GATTC_WRITE_CHAR_EVT:
-        if (p_data->write.status != ESP_GATT_OK){
-            ESP_LOGE(DEVICE_TAG, "write char failed, error status = %x", p_data->write.status);
-        }else{
-            ESP_LOGI(DEVICE_TAG, "write char success");
-        }
-        break;
+    // case ESP_GATTC_WRITE_CHAR_EVT:
+    //     if (p_data->write.status != ESP_GATT_OK){
+    //         ESP_LOGE(DEVICE_TAG, "write char failed, error status = %x", p_data->write.status);
+    //     }else{
+    //         ESP_LOGI(DEVICE_TAG, "write char success");
+    //     }
+    //     break;
     case ESP_GATTC_SRVC_CHG_EVT: {
         esp_bd_addr_t bda;
 

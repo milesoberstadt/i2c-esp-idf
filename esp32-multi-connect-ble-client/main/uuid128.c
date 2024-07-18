@@ -1,6 +1,6 @@
 #include "uuid128.h"
 
-unsigned int size = 16;
+size_t size = 16;
 
 // Extract service UUID from advertisement data
 bool get_adv_service_uuid(uint8_t *adv_data, uint8_t adv_data_len, uint8_t *service_uuid) {
@@ -10,9 +10,9 @@ bool get_adv_service_uuid(uint8_t *adv_data, uint8_t adv_data_len, uint8_t *serv
         uint8_t type = adv_data[i + 1];
 
         if (type == 0x06 || type == 0x07) { // 0x06: 128-bit UUID, 0x07: Complete List of 128-bit UUIDs
-            // Extract UUID in reverse order
+            // Extract UUID in normal order
             for (int j = 0; j < size; j++) {
-                service_uuid[j] = adv_data[i + 2 + 15 - j];
+                service_uuid[j] = adv_data[i + 2 + j];
             }
             return true;
         }
@@ -23,10 +23,4 @@ bool get_adv_service_uuid(uint8_t *adv_data, uint8_t adv_data_len, uint8_t *serv
 
 bool compare_uuid(const uint8_t *uuid1, const uint8_t *uuid2) {
     return memcmp(uuid1, uuid2, size) == 0;
-}
-
-void reverse_uuid(uint8_t *source, uint8_t *destination) {
-    for (int i = 0; i < size; i++) {
-        destination[i] = source[size - 1 - i];
-    }
 }
