@@ -5,26 +5,19 @@ void generate_device_key(size_t idx, char *tag, char* suffix) {
 }
 
 bool init_devices() {
-
-    bool ret = init_device_config();
-    if (!ret) {
-        ESP_LOGE(DEVICES_TAG, "Error initializing device config");
-        return false;
-    }
-
     return init_preferences();
 }
 
 bool device_exists(size_t idx) {
     char addr_key[DEVICE_KEY_SIZE];
-    generate_device_key(idx, addr_key, "addr");
+    generate_device_key(idx, addr_key, DEVICE_BLE_ADDR_KEY);
     return is_preference_key(addr_key);
 }
 
 bool add_device(esp_bd_addr_t bda, esp_ble_addr_type_t ble_addr_type, size_t device_type, size_t idx) {
 
     char addr_key[DEVICE_KEY_SIZE];
-    generate_device_key(idx, addr_key, "addr");
+    generate_device_key(idx, addr_key, DEVICE_BLE_ADDR_KEY);
 
     if (is_preference_key(addr_key)) {
     
@@ -55,7 +48,7 @@ bool add_device(esp_bd_addr_t bda, esp_ble_addr_type_t ble_addr_type, size_t dev
     }
 
     char type_key[DEVICE_KEY_SIZE];
-    generate_device_key(idx, type_key, "bl_t");
+    generate_device_key(idx, type_key, DEVICE_BLE_ADDR_TYPE_KEY);
     ret = put_int(type_key, ble_addr_type);
     if (!ret) {
         ESP_LOGE(DEVICES_TAG, "Error adding device idx %d (type)", idx);
@@ -63,7 +56,7 @@ bool add_device(esp_bd_addr_t bda, esp_ble_addr_type_t ble_addr_type, size_t dev
     }
 
     char device_type_key[DEVICE_KEY_SIZE];
-    generate_device_key(idx, device_type_key, "dv_t");
+    generate_device_key(idx, device_type_key, DEVICE_TYPE_KEY);
     ret = put_int(device_type_key, device_type);
     if (!ret) {
         ESP_LOGE(DEVICES_TAG, "Error adding device idx %d (device type)", idx);
@@ -86,7 +79,7 @@ bool add_device(esp_bd_addr_t bda, esp_ble_addr_type_t ble_addr_type, size_t dev
 bool remove_device(size_t idx) {
 
     char addr_key[DEVICE_KEY_SIZE];
-    generate_device_key(idx, addr_key, "addr");
+    generate_device_key(idx, addr_key, DEVICE_BLE_ADDR_KEY);
     if (!is_preference_key(addr_key)) {
         ESP_LOGE(DEVICES_TAG, "Can't remove device idx %d, device doesn't exist", idx);
         return false;
@@ -99,14 +92,14 @@ bool remove_device(size_t idx) {
     }
 
     char type_key[DEVICE_KEY_SIZE];
-    generate_device_key(idx, type_key, "bl_t");
+    generate_device_key(idx, type_key, DEVICE_BLE_ADDR_TYPE_KEY);
     ret = remove_preference(type_key);
     if (!ret) {
         ESP_LOGE(DEVICES_TAG, "Error removing device idx %d (type)", idx);
     }
 
     char device_type_key[DEVICE_KEY_SIZE];
-    generate_device_key(idx, device_type_key, "dv_t");
+    generate_device_key(idx, device_type_key, DEVICE_TYPE_KEY);
     ret = remove_preference(device_type_key);
     if (!ret) {
         ESP_LOGE(DEVICES_TAG, "Error removing device idx %d (device type)", idx);
@@ -131,7 +124,7 @@ size_t get_device_count() {
 bool get_device(size_t idx, device_t *dev) {
 
     char addr_key[DEVICE_KEY_SIZE];
-    generate_device_key(idx, addr_key, "addr");
+    generate_device_key(idx, addr_key, DEVICE_BLE_ADDR_KEY);
     size_t len = get_bytes_length(addr_key);
     if (!len) {
         ESP_LOGE(DEVICES_TAG, "Error reading device idx %d (address)", idx);
@@ -145,7 +138,7 @@ bool get_device(size_t idx, device_t *dev) {
     }
 
     char type_key[DEVICE_KEY_SIZE];
-    generate_device_key(idx, type_key, "bl_t");
+    generate_device_key(idx, type_key, DEVICE_BLE_ADDR_TYPE_KEY);
     int32_t ble_addr_type = get_int(type_key, -1);
     if (ble_addr_type == -1) {
         ESP_LOGE(DEVICES_TAG, "Error reading device idx %d (type)", idx);
@@ -153,7 +146,7 @@ bool get_device(size_t idx, device_t *dev) {
     }
 
     char device_type_key[DEVICE_KEY_SIZE];
-    generate_device_key(idx, device_type_key, "dv_t");
+    generate_device_key(idx, device_type_key, DEVICE_TYPE_KEY);
     int32_t device_type = get_int(device_type_key, -1);
     if (device_type == -1) {
         ESP_LOGE(DEVICES_TAG, "Error reading device idx %d (device type)", idx);
@@ -213,7 +206,7 @@ bool update_device_bda(size_t idx, esp_bd_addr_t bda) {
         }
     
         char addr_key[DEVICE_KEY_SIZE];
-        generate_device_key(idx, addr_key, "addr");
+        generate_device_key(idx, addr_key, DEVICE_BLE_ADDR_KEY);
         size_t res = put_bytes(addr_key, bda, sizeof(esp_bd_addr_t));
         if (!res) {
             ESP_LOGE(DEVICES_TAG, "Error updating device idx %d (address)", idx);

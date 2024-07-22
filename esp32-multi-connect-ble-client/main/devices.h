@@ -18,11 +18,18 @@
 
 #define DEVICES_TAG "DEVICES"
 
+#define DEVICE_COUNT_KEY "dev_count"
+
+/* Device keys configuration */
 #define DEVICE_KEY_PREFIX_SIZE 5   // support up to 99 devices (devXX)
 #define DEVICE_KEY_SUFFIX_SIZE 4 
 #define DEVICE_KEY_SIZE (DEVICE_KEY_PREFIX_SIZE + DEVICE_KEY_SUFFIX_SIZE)
 
-#define DEVICE_COUNT_KEY "dev_count"
+/* Device key names */
+/* these keys should be DEVICE_KEY_SUFFIX_SIZE long */
+#define DEVICE_BLE_ADDR_KEY "addr"
+#define DEVICE_BLE_ADDR_TYPE_KEY "bl_t"
+#define DEVICE_TYPE_KEY "dv_t"
 
 bool init_devices();
 

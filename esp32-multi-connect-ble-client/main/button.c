@@ -41,7 +41,14 @@ bool init_button(button_config_t *config) {
     if (button_states == NULL) {
         button_states = malloc(sizeof(button_state_t));
     } else {
-        button_states = realloc(button_states, sizeof(button_state_t) * (num_buttons + 1));
+        button_state_t *new_button_states = realloc(button_states, sizeof(button_state_t) * (num_buttons + 1));
+
+        if (new_button_states == NULL) {
+            ESP_LOGE(BUTTON_TAG, "Failed to allocate memory for button states");
+            return false;
+        }
+
+        button_states = new_button_states;
     }
 
     button_state_t *button = &button_states[num_buttons];

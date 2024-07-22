@@ -53,7 +53,7 @@ void handle_scan_result(esp_ble_gap_cb_param_t *scan_result) {
                 device_type_t type = get_device_type_from_uuid(service_uuid);
 
                 if (type == UNKNOWN_DEVICE) {
-                    ESP_LOGI(GAP_TAG, "Service UUID not matching with the remote service UUID.");
+                    ESP_LOGI(GAP_TAG, "Service UUID not matching with any device type UUID.");
                     // todo : maybe stop analysing this device
                     break;
                 }

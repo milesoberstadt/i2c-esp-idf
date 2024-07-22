@@ -12,6 +12,10 @@
 
 #define DATA_TAG "DATA"
 
-void gyro_data_callback(size_t device_idx, uint8_t *value, uint16_t value_len);
+/** --- Define your device data callbacks here --- */
+
+void m_node_cb(size_t device_idx, uint8_t *value, uint16_t value_len);
+
+void a_node_cb(size_t device_idx, uint8_t *value, uint16_t value_len);
 
 #endif // __DATA_H__

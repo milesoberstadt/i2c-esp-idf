@@ -2,18 +2,13 @@
 
 static gattc_profile_inst profiles[MAX_DEVICES];
 
-size_t get_profile_count() {
-    return sizeof(profiles) / sizeof(profiles[0]);
-}
-
-bool is_profile_available(size_t idx) {
-    return !profiles[idx].connected;
+bool is_profile_active(size_t idx) {
+    return profiles[idx].gattc_if != ESP_GATT_IF_NONE;
 }
 
 size_t next_available_profile_idx() {
-    size_t count = get_profile_count();
-    for (size_t i = 0; i < count; i++) {
-        if (is_profile_available(i)) {
+    for (size_t i = 0; i < MAX_DEVICES; i++) {
+        if (is_profile_active(i)) {
             return i;
         }
     }
@@ -89,6 +84,91 @@ void connection_oppened_handler(size_t idx, esp_gatt_if_t gattc_if, esp_ble_gatt
         ESP_LOGE(DEVICE_TAG, "config MTU error, error code = %x", mtu_ret);
     }
 
+}
+
+uint16_t get_characteristic_count(size_t idx, esp_gatt_db_attr_type_t type, uint16_t char_handle) {
+
+    char DEVICE_TAG[DEVICE_TAG_SIZE];
+    generate_device_tag(idx, DEVICE_TAG);
+
+    uint16_t count = 0;
+    esp_gatt_status_t status = esp_ble_gattc_get_attr_count(profiles[idx].gattc_if,
+                                                            profiles[idx].conn_id,
+                                                            type,
+                                                            profiles[idx].service_start_handle,
+                                                            profiles[idx].service_end_handle,
+                                                            char_handle,
+                                                            &count);
+    if (status != ESP_GATT_OK){
+        ESP_LOGE(DEVICE_TAG, "esp_ble_gattc_get_attr_count error");
+        disconnected_handler(idx);
+        return 0;
+    }
+
+    return count;
+
+}
+
+size_t discover_characteristics(size_t idx, size_t count) {
+    char DEVICE_TAG[DEVICE_TAG_SIZE];
+    generate_device_tag(idx, DEVICE_TAG);
+
+    esp_gattc_char_elem_t *char_result = (esp_gattc_char_elem_t *)malloc(sizeof(esp_gattc_char_elem_t) * count);
+
+    size_t found_char_count = 0;
+
+    if (!char_result){
+        ESP_LOGE(DEVICE_TAG, "gattc no mem");
+        disconnected_handler(idx);
+        return 0;
+    } 
+
+    device_type_config_t device_config = get_device_config(profiles[idx].device_type);
+
+    for (size_t i = 0; i < device_config.char_count; i++) {
+
+        esp_bt_uuid_t char_uuid = device_config.char_uuids[i];
+
+        ESP_LOGI(DEVICE_TAG, "Looking for characteristic %d", i);
+        esp_log_buffer_hex(DEVICE_TAG, (void *)&char_uuid, sizeof(esp_bt_uuid_t));
+        
+        uint16_t char_count;
+
+        esp_gatt_status_t status = esp_ble_gattc_get_char_by_uuid(profiles[idx].gattc_if,
+                                            profiles[idx].conn_id,
+                                            profiles[idx].service_start_handle,
+                                            profiles[idx].service_end_handle,
+                                            char_uuid,
+                                            char_result,
+                                            &char_count);
+
+        if (status != ESP_GATT_OK){
+            ESP_LOGE(DEVICE_TAG, "esp_ble_gattc_get_char_by_uuid error, error status = %x", status);
+            continue;
+        }
+
+        ESP_LOGI(DEVICE_TAG, "Characteristic found, char_handle %d char property %x", char_result[0].char_handle, char_result[0].properties);
+
+        if (char_count > 0 && (char_result[0].properties & ESP_GATT_CHAR_PROP_BIT_NOTIFY)){
+
+            ESP_LOGI(DEVICE_TAG, "char property has notify");
+            profiles[idx].char_handle = char_result[0].char_handle;
+            esp_ble_gattc_register_for_notify(  profiles[idx].gattc_if, 
+                                                profiles[idx].remote_bda, 
+                                                char_result[0].char_handle);
+
+            found_char_count++;
+
+        } else {
+            ESP_LOGE(DEVICE_TAG, "no char property has notify");
+        }
+
+    }
+    
+    free(char_result);
+    char_result = NULL;
+
+    return found_char_count;
 }
 
 void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *param)
@@ -181,97 +261,50 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
         }
         if (profiles[idx].discovered){
 
-            ESP_LOGI(DEVICE_TAG, "Service found, looking for characteristics");
+            ESP_LOGI(DEVICE_TAG, "Service found, looking for characteristics ...");
 
-            uint16_t count = 0;
-            esp_gatt_status_t status = esp_ble_gattc_get_attr_count( gattc_if,
-                                                                     p_data->search_cmpl.conn_id,
-                                                                     ESP_GATT_DB_CHARACTERISTIC,
-                                                                     profiles[idx].service_start_handle,
-                                                                     profiles[idx].service_end_handle,
-                                                                     INVALID_HANDLE,
-                                                                     &count);
-            if (status != ESP_GATT_OK){
-                ESP_LOGE(DEVICE_TAG, "esp_ble_gattc_get_attr_count error");
+            uint16_t count = get_characteristic_count(idx, ESP_GATT_DB_CHARACTERISTIC, INVALID_HANDLE);
+            
+            ESP_LOGI(DEVICE_TAG, "Characteritics found : %d", count);
+
+            if (count == 0) {
+                ESP_LOGE(DEVICE_TAG, "0 char detected on the service, disconnecting ...");
                 disconnected_handler(idx);
                 break;
             }
 
-            ESP_LOGI(DEVICE_TAG, "Characteritics found : %d", count);
+            ESP_LOGI(DEVICE_TAG, "Discovering characteristics ...");
+            size_t found_char = discover_characteristics(idx, count);
 
-            if (count > 0) {
-
-                esp_gattc_char_elem_t *char_result = (esp_gattc_char_elem_t *)malloc(sizeof(esp_gattc_char_elem_t) * count);
-
-                if (!char_result){
-                    ESP_LOGE(DEVICE_TAG, "gattc no mem");
-                    disconnected_handler(idx);
-                    break;
-                }else {
-
-                    status = esp_ble_gattc_get_char_by_uuid(gattc_if,
-                                                            p_data->search_cmpl.conn_id,
-                                                            profiles[idx].service_start_handle,
-                                                            profiles[idx].service_end_handle,
-                                                            UUID_GYRO_CHAR,
-                                                            char_result,
-                                                            &count);
-
-                    if (status != ESP_GATT_OK){
-                        ESP_LOGE(DEVICE_TAG, "esp_ble_gattc_get_char_by_uuid error, error status = %x", status);
-                        free(char_result);
-                        char_result = NULL;
-                        disconnected_handler(idx);
-                        break;
-                    }
-
-                    ESP_LOGI(DEVICE_TAG, "char_handle %d char property %x", char_result[0].char_handle, char_result[0].properties);
-
-                    /*  Every service have only one char in our 'ESP_GATTS_DEMO' demo, so we used first 'char_elem_result' */
-                    if (count > 0 && (char_result[0].properties & ESP_GATT_CHAR_PROP_BIT_NOTIFY)){
-                        ESP_LOGI(DEVICE_TAG, "char property has notify");
-                        profiles[idx].char_handle = char_result[0].char_handle;
-                        esp_ble_gattc_register_for_notify (gattc_if, profiles[idx].remote_bda, char_result[0].char_handle);
-                    } else {
-                        ESP_LOGE(DEVICE_TAG, "no char property has notify");
-                        disconnected_handler(idx);
-                    }
-                }
-                free(char_result);
-            } else {
-                ESP_LOGE(DEVICE_TAG, "no char found");
+            if (found_char == 0) {
+                ESP_LOGE(DEVICE_TAG, "0 char found, disconnecting...");
                 disconnected_handler(idx);
+                break;
             }
+
         }
         break;
     case ESP_GATTC_REG_FOR_NOTIFY_EVT: {
         if (p_data->reg_for_notify.status != ESP_GATT_OK){
-            ESP_LOGE(DEVICE_TAG, "reg notify failed, error status =%x", p_data->reg_for_notify.status);
+            ESP_LOGE(DEVICE_TAG, "Failed to register for notifications, error status =%x, disconnecting...", p_data->reg_for_notify.status);
             disconnected_handler(idx);
             break;
         }
-        uint16_t count = 0;
+
+        ESP_LOGI(DEVICE_TAG, "Registering for notifications ...");
+
+        uint16_t count = get_characteristic_count(idx, ESP_GATT_DB_DESCRIPTOR, profiles[idx].char_handle);
         uint16_t notify_en = 1;
-        ESP_LOGI(DEVICE_TAG, "Registering notify ...");
-        esp_gatt_status_t ret_status = esp_ble_gattc_get_attr_count( gattc_if,
-                                                                     profiles[idx].conn_id,
-                                                                     ESP_GATT_DB_DESCRIPTOR,
-                                                                     profiles[idx].service_start_handle,
-                                                                     profiles[idx].service_end_handle,
-                                                                     profiles[idx].char_handle,
-                                                                     &count);
-        if (ret_status != ESP_GATT_OK){
-            ESP_LOGE(DEVICE_TAG, "esp_ble_gattc_get_attr_count error");
-            disconnected_handler(idx);
-        }
+
         if (count > 0){
+
             esp_gattc_descr_elem_t* descr_result = (esp_gattc_descr_elem_t *)malloc(sizeof(esp_gattc_descr_elem_t) * count);
             if (!descr_result){
                 ESP_LOGE(DEVICE_TAG, "malloc error, gattc no mem");
                 disconnected_handler(idx);
-            }else{
+            } else {
                 ESP_LOGI(DEVICE_TAG, "Getting attribute descriptor %d", count);
-                ret_status = esp_ble_gattc_get_descr_by_char_handle( gattc_if,
+                esp_gatt_status_t ret_status = esp_ble_gattc_get_descr_by_char_handle( gattc_if,
                                                                      profiles[idx].conn_id,
                                                                      p_data->reg_for_notify.handle,
                                                                      notify_descr_uuid,
@@ -408,7 +441,7 @@ bool init_gattc() {
 // if called with idx = -1, will try to find next available profile
 void open_profile(esp_bd_addr_t bda, esp_ble_addr_type_t ble_addr_type, size_t idx, device_type_t type) {
 
-    if (idx != -1 && !is_profile_available(idx)) {
+    if (idx != -1 && !is_profile_active(idx)) {
         ESP_LOGE(GATTC_TAG, "Trying to open profile at idx %d, but profile is already in use", idx);
         return;
     }
@@ -441,6 +474,3 @@ void open_profile(esp_bd_addr_t bda, esp_ble_addr_type_t ble_addr_type, size_t i
 
 }
 
-bool is_profile_active(size_t idx) {
-    return profiles[idx].gattc_if != ESP_GATT_IF_NONE;
-}
