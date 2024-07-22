@@ -52,16 +52,16 @@ bool init_ui() {
     }
     ESP_LOGI(UI_TAG, "Pair button initialized");
 
-    // ESP_LOGI(UI_TAG, "Initializing select button");
-    // button_config_t select_button_config = {
-    //     .gpio_num = SELECT_BUTTON_PIN,
-    //     .press_callback = switch_selected_device,
-    // };
-    // ret = init_button(&select_button_config);
-    // if (!ret) {
-    //     ESP_LOGE(UI_TAG, "Failed to initialize button");
-    //     return false;
-    // }
+    ESP_LOGI(UI_TAG, "Initializing select button");
+    button_config_t select_button_config = {
+        .gpio_num = SELECT_BUTTON_PIN,
+        .press_callback = switch_selected_device,
+    };
+    ret = init_button(&select_button_config);
+    if (!ret) {
+        ESP_LOGE(UI_TAG, "Failed to initialize button");
+        return false;
+    }
 
     ESP_LOGI(UI_TAG, "Select button initialized");
 
