@@ -150,7 +150,7 @@ void loop() {
           char windSpeedData[100];
           sprintf(windSpeedData, "%.2f;%.2f;%.2f", (float)sensorValue, sensorVoltage, windSpeed);
           windCharacteristic.writeValue(windSpeedData);
-          Serial.print(windSpeedData);
+          Serial.println(windSpeedData);
         #endif
 
         delay(1000 / SEND_INTERVAL);
