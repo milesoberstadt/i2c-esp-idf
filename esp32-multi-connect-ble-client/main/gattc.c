@@ -43,16 +43,40 @@ void connection_start_handler(size_t idx) {
     start_led_blink(idx, -1, 300);
 }
 
-void connection_end_handler(size_t idx) {
-    stop_led_blink(idx);
-    set_led(idx, false);
+void disconnect(size_t idx) {
+
+    char DEVICE_TAG[DEVICE_TAG_SIZE];
+    generate_device_tag(idx, DEVICE_TAG);
+
+    if (profiles[idx].gattc_if != ESP_GATT_IF_NONE) {
+
+        esp_err_t ret = esp_ble_gattc_close(profiles[idx].gattc_if, profiles[idx].conn_id);
+
+        if (ret != ESP_OK) {
+            ESP_LOGE(DEVICE_TAG, "gattc close, error code = %x", ret);
+        }
+        
+        ret = esp_ble_gattc_app_unregister(profiles[idx].gattc_if);
+        if (ret != ESP_OK){
+            ESP_LOGE(DEVICE_TAG, "gattc app unregister error, error code = %x", ret);
+            return;
+        } 
+        
+        profiles[idx].gattc_if = ESP_GATT_IF_NONE;
+        
+    }
 
     free(profiles[idx].char_handles);
     profiles[idx].connected = false;
     profiles[idx].discovered = false;
-    profiles[idx].gattc_if = ESP_GATT_IF_NONE;
     profiles[idx].device_type = UNKNOWN_DEVICE;
     profiles[idx].data_callback = NULL;
+
+    stop_led_blink(idx);
+    set_led(idx, false);
+
+    ESP_LOGI(DEVICE_TAG, "DEVICE DISCONNECTED");
+
 }
 
 void connection_success_handler(size_t idx) {
@@ -64,21 +88,6 @@ void connection_success_handler(size_t idx) {
         ESP_LOGE(GATTC_TAG, "Failed to save device");
     }
 
-}
-
-void disconnected_handler(size_t idx) {
-
-    char DEVICE_TAG[DEVICE_TAG_SIZE];
-    generate_device_tag(idx, DEVICE_TAG);
-
-    esp_err_t ret = esp_ble_gattc_app_unregister(profiles[idx].gattc_if);
-    if (ret){
-        ESP_LOGE(DEVICE_TAG, "gattc app unregister error, error code = %x", ret);
-    }
-
-    connection_end_handler(idx);
-    
-    ESP_LOGI(DEVICE_TAG, "DEVICE DISCONNECTED");
 }
 
 void connection_oppened_handler(size_t idx, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *p_data) {
@@ -113,7 +122,7 @@ uint16_t get_characteristic_count(size_t idx, esp_gatt_db_attr_type_t type, uint
                                                             &count);
     if (status != ESP_GATT_OK){
         ESP_LOGE(DEVICE_TAG, "esp_ble_gattc_get_attr_count error");
-        disconnected_handler(idx);
+        disconnect(idx);
         return 0;
     }
 
@@ -131,7 +140,7 @@ size_t discover_characteristics(size_t idx, size_t count) {
 
     if (!char_result){
         ESP_LOGE(DEVICE_TAG, "gattc no mem");
-        disconnected_handler(idx);
+        disconnect(idx);
         return 0;
     } 
 
@@ -226,7 +235,7 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
 
         if (p_data->open.status != ESP_GATT_OK){
             ESP_LOGE(DEVICE_TAG, "connection failed, status %d", p_data->open.status);
-            disconnected_handler(idx);
+            disconnect(idx);
             break;
         } 
 
@@ -237,7 +246,7 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
 
         if (param->cfg_mtu.status != ESP_GATT_OK){
             ESP_LOGE(DEVICE_TAG,"Config mtu failed");
-            disconnected_handler(idx);
+            disconnect(idx);
         }
 
         ESP_LOGI(DEVICE_TAG, "mut set : Status %d, MTU %d, conn_id %d", param->cfg_mtu.status, param->cfg_mtu.mtu, param->cfg_mtu.conn_id);
@@ -272,7 +281,7 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
 
         if (p_data->search_cmpl.status != ESP_GATT_OK){
             ESP_LOGE(DEVICE_TAG, "search service failed, error status = %d", p_data->search_cmpl.status);
-            disconnected_handler(idx);
+            disconnect(idx);
             break;
         }
         if (profiles[idx].discovered){
@@ -285,7 +294,7 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
 
             if (count == 0) {
                 ESP_LOGE(DEVICE_TAG, "0 char detected on the service, disconnecting ...");
-                disconnected_handler(idx);
+                disconnect(idx);
                 break;
             }
 
@@ -294,7 +303,7 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
 
             if (found_char == 0) {
                 ESP_LOGE(DEVICE_TAG, "0 char found, disconnecting...");
-                disconnected_handler(idx);
+                disconnect(idx);
                 break;
             }
 
@@ -303,7 +312,7 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
     case ESP_GATTC_REG_FOR_NOTIFY_EVT: {
         if (p_data->reg_for_notify.status != ESP_GATT_OK){
             ESP_LOGE(DEVICE_TAG, "Failed to register for notifications, error status =%x, disconnecting...", p_data->reg_for_notify.status);
-            disconnected_handler(idx);
+            disconnect(idx);
             break;
         }
 
@@ -318,7 +327,7 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
             esp_gattc_descr_elem_t* descr_result = (esp_gattc_descr_elem_t *)malloc(sizeof(esp_gattc_descr_elem_t) * count);
             if (!descr_result){
                 ESP_LOGE(DEVICE_TAG, "malloc error, gattc no mem");
-                disconnected_handler(idx);
+                disconnect(idx);
             } else {
                 ESP_LOGI(DEVICE_TAG, "Getting attribute descriptor %d", count);
                 esp_gatt_status_t ret_status = esp_ble_gattc_get_descr_by_char_handle( gattc_if,
@@ -329,7 +338,7 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
                                                                      &count);
                 if (ret_status != ESP_GATT_OK){
                     ESP_LOGE(DEVICE_TAG, "esp_ble_gattc_get_descr_by_char_handle error");
-                    disconnected_handler(idx);
+                    disconnect(idx);
                 }
 
                 ESP_LOGI(DEVICE_TAG, "descr_handle %d descr uuid %x", descr_result[0].handle, descr_result[0].uuid.len);
@@ -346,7 +355,7 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
 
                 if (ret_status != ESP_GATT_OK){
                     ESP_LOGE(DEVICE_TAG, "esp_ble_gattc_write_char_descr error");
-                    disconnected_handler(idx);
+                    disconnect(idx);
                 }
 
                 free(descr_result);
@@ -354,13 +363,13 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
         }
         else {
             ESP_LOGE(DEVICE_TAG, "decsr not found");
-            disconnected_handler(idx);
+            disconnect(idx);
         }
         break;
     case ESP_GATTC_WRITE_DESCR_EVT:
         if (p_data->write.status != ESP_GATT_OK){
             ESP_LOGE(DEVICE_TAG, "write descr failed, error status = %x", p_data->write.status);
-            disconnected_handler(idx);
+            disconnect(idx);
             break;
         }
         ESP_LOGI(DEVICE_TAG, "write descr success");
@@ -403,7 +412,7 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
     }
     case ESP_GATTC_DISCONNECT_EVT:
         if (memcmp(p_data->disconnect.remote_bda, profiles[idx].remote_bda, 6) == 0){
-            disconnected_handler(idx);
+            disconnect(idx);
         }
         break;
     default:
@@ -493,7 +502,7 @@ void open_profile(esp_bd_addr_t bda, esp_ble_addr_type_t ble_addr_type, size_t i
     esp_err_t ret = esp_ble_gattc_app_register(idx);
     if (ret){
         ESP_LOGE(GATTC_TAG, "gattc app register error, error code = %x", ret);
-        connection_end_handler(idx);
+        disconnect(idx);
         return;
     }
 

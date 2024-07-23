@@ -18,6 +18,10 @@ void start_pairing() {
         return;
     }
 
+    if (is_profile_active(selected_device)) {
+        disconnect(selected_device);
+    }
+
     start_scan();
 
 }
