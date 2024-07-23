@@ -10,12 +10,10 @@
 
 #define DEVICE_CONFIG_TAG "DEVICE_CONFIG"
 
-#define ESP_BT_UUID_T(...) { .len = ESP_UUID_LEN_128, .uuid.uuid128 = { __VA_ARGS__ }}
-
 /* --- Define your devices config here --- */
 
 // Number of existing device types (without UNKNOWN_DEVICE)
-#define DEVICE_TYPE_COUNT 1
+#define DEVICE_TYPE_COUNT 2
 
 // Give a unique ID to each device type
 typedef enum device_type_t {

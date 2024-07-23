@@ -28,7 +28,7 @@ typedef struct {
 } button_state_t;
 
 
-typedef void (*data_callback_t)(size_t device_idx, uint8_t *value, uint16_t value_len);
+typedef void (*data_callback_t)(size_t device_idx, size_t char_idx, uint8_t *value, uint16_t value_len);
 
 typedef struct {
     esp_bt_uuid_t service_uuid;
@@ -43,12 +43,12 @@ typedef struct {
     uint16_t conn_id;
     uint16_t service_start_handle;
     uint16_t service_end_handle;
-    uint16_t char_handle;
     esp_bd_addr_t remote_bda;
     esp_ble_addr_type_t ble_addr_type;
     size_t device_type;
     bool connected;
     bool discovered;
+    uint16_t *char_handles;
     data_callback_t data_callback;
 } gattc_profile_inst;
 

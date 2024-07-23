@@ -29,6 +29,15 @@ size_t get_idx_by_gattc_if(esp_gatt_if_t gattc_if) {
     return -1;
 }
 
+size_t get_char_idx_by_handle(size_t idx, uint16_t handle) {
+    device_type_config_t device_config = get_device_config(profiles[idx].device_type);
+    for (size_t i = 0; i < device_config.char_count; i++) {
+        if (profiles[idx].char_handles[i] == handle) {
+            return i;
+        }
+    }
+    return -1;
+}
 
 void connection_start_handler(size_t idx) {
     start_led_blink(idx, -1, 300);
@@ -37,10 +46,13 @@ void connection_start_handler(size_t idx) {
 void connection_end_handler(size_t idx) {
     stop_led_blink(idx);
     set_led(idx, false);
+
+    free(profiles[idx].char_handles);
     profiles[idx].connected = false;
     profiles[idx].discovered = false;
     profiles[idx].gattc_if = ESP_GATT_IF_NONE;
     profiles[idx].device_type = UNKNOWN_DEVICE;
+    profiles[idx].data_callback = NULL;
 }
 
 void connection_success_handler(size_t idx) {
@@ -152,7 +164,9 @@ size_t discover_characteristics(size_t idx, size_t count) {
         if (char_count > 0 && (char_result[0].properties & ESP_GATT_CHAR_PROP_BIT_NOTIFY)){
 
             ESP_LOGI(DEVICE_TAG, "char property has notify");
-            profiles[idx].char_handle = char_result[0].char_handle;
+
+            profiles[idx].char_handles[i] = char_result[0].char_handle;
+
             esp_ble_gattc_register_for_notify(  profiles[idx].gattc_if, 
                                                 profiles[idx].remote_bda, 
                                                 char_result[0].char_handle);
@@ -183,6 +197,8 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
 
     char DEVICE_TAG[DEVICE_TAG_SIZE];
     generate_device_tag(idx, DEVICE_TAG);
+
+    device_type_config_t device_config = get_device_config(profiles[idx].device_type);
 
     esp_ble_gattc_cb_param_t *p_data = (esp_ble_gattc_cb_param_t *)param;
 
@@ -230,7 +246,7 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
         ret = esp_ble_gattc_search_service(
             gattc_if, 
             param->cfg_mtu.conn_id, 
-            &UUID_M_NODE
+            &device_config.service_uuid
         );
         
         if (ret){
@@ -240,7 +256,7 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
         break;
     case ESP_GATTC_SEARCH_RES_EVT: {
 
-        if (p_data->search_res.srvc_id.uuid.len == ESP_UUID_LEN_128 && compare_uuid(UUID_M_NODE.uuid.uuid128, p_data->search_res.srvc_id.uuid.uuid.uuid128)) {
+        if (p_data->search_res.srvc_id.uuid.len == ESP_UUID_LEN_128 && compare_uuid(device_config.service_uuid.uuid.uuid128, p_data->search_res.srvc_id.uuid.uuid.uuid128)) {
             ESP_LOGI(DEVICE_TAG, "MATCHING SERVICE FOUND");
             profiles[idx].service_start_handle = p_data->search_res.start_handle;
             profiles[idx].service_end_handle = p_data->search_res.end_handle;
@@ -293,7 +309,8 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
 
         ESP_LOGI(DEVICE_TAG, "Registering for notifications ...");
 
-        uint16_t count = get_characteristic_count(idx, ESP_GATT_DB_DESCRIPTOR, profiles[idx].char_handle);
+        uint16_t char_handle = p_data->reg_for_notify.handle;
+        uint16_t count = get_characteristic_count(idx, ESP_GATT_DB_DESCRIPTOR, char_handle);
         uint16_t notify_en = 1;
 
         if (count > 0){
@@ -306,7 +323,7 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
                 ESP_LOGI(DEVICE_TAG, "Getting attribute descriptor %d", count);
                 esp_gatt_status_t ret_status = esp_ble_gattc_get_descr_by_char_handle( gattc_if,
                                                                      profiles[idx].conn_id,
-                                                                     p_data->reg_for_notify.handle,
+                                                                     char_handle,
                                                                      notify_descr_uuid,
                                                                      descr_result,
                                                                      &count);
@@ -351,11 +368,22 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
         // this was the last step of the connection process !
         connection_success_handler(idx);
 
-
         break;
     case ESP_GATTC_NOTIFY_EVT:
         if (p_data->notify.is_notify && profiles[idx].data_callback) {
-            profiles[idx].data_callback(idx, p_data->notify.value, p_data->notify.value_len);
+
+            size_t char_idx = get_char_idx_by_handle(idx, p_data->notify.handle);
+
+            if (char_idx == -1) {
+                ESP_LOGE(DEVICE_TAG, "Characteristic not found for handle %d", p_data->notify.handle);
+                break;
+            }
+
+            profiles[idx].data_callback(idx, 
+                                        char_idx, 
+                                        p_data->notify.value, 
+                                        p_data->notify.value_len);
+                                        
         }
         break;
     case ESP_GATTC_SRVC_CHG_EVT: {
@@ -405,17 +433,12 @@ void esp_gattc_cb(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_ga
             break;
     }
 
-    /* If the gattc_if equal to profile A, call profile A cb handler,
-     * so here call each profile's callback */
-    do {
-        int idx;
-        for (idx = 0; idx < MAX_DEVICES; idx++) {
-            if (gattc_if == ESP_GATT_IF_NONE || /* ESP_GATT_IF_NONE, not specify a certain gatt_if, need to call every profile cb function */
-                    gattc_if == profiles[idx].gattc_if) {
-                gattc_profile_callback(event, gattc_if, param);
-            }
+    for (size_t idx = 0; idx < MAX_DEVICES; idx++) {
+        if (gattc_if == ESP_GATT_IF_NONE || /* ESP_GATT_IF_NONE, not specify a certain gatt_if, need to call every profile cb function */
+                gattc_if == profiles[idx].gattc_if) {
+            gattc_profile_callback(event, gattc_if, param);
         }
-    } while (0);
+    }
 }
 
 bool init_gattc() {
@@ -464,6 +487,8 @@ void open_profile(esp_bd_addr_t bda, esp_ble_addr_type_t ble_addr_type, size_t i
     profiles[idx].device_type = type;
     profiles[idx].data_callback = device_config.data_callback;
     memcpy(profiles[idx].remote_bda, bda, 6);
+
+    profiles[idx].char_handles = (uint16_t *)malloc(sizeof(uint16_t) * device_config.char_count);
 
     esp_err_t ret = esp_ble_gattc_app_register(idx);
     if (ret){

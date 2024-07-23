@@ -14,8 +14,8 @@
 
 /** --- Define your device data callbacks here --- */
 
-void m_node_cb(size_t device_idx, uint8_t *value, uint16_t value_len);
+void m_node_cb(size_t device_idx, size_t char_idx, uint8_t *value, uint16_t value_len);
 
-void a_node_cb(size_t device_idx, uint8_t *value, uint16_t value_len);
+void a_node_cb(size_t device_idx, size_t char_idx, uint8_t *value, uint16_t value_len);
 
 #endif // __DATA_H__
