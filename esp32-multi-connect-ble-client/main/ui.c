@@ -28,7 +28,7 @@ void start_pairing() {
 
 void reconnect_device() {
     if (is_profile_active(selected_device)) {
-        ESP_LOGI(UI_TAG, "Can't reconnect %d, connection already in progress.", selected_device);
+        ESP_LOGI(UI_TAG, "Can't reconnect %d, connection already active or in progress.", selected_device);
         return;
     }
     connect_device(selected_device);
