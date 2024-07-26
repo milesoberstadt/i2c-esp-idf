@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #define DEVICE_TYPE_COUNT 3
+#define DEVICE_COUNT 6
 
 // Give a unique ID to each device type
 typedef enum device_type_t {

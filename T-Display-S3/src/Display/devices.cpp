@@ -2,83 +2,28 @@
 
 Devices::Devices()
 {
+    devices = std::vector<device_t>(DEVICE_COUNT);
 }
 
 Devices::~Devices()
 {
+    devices.clear();
 }
 
-void Devices::addDevice(device_t device)
+void Devices::setDeviceState(uint8_t idx, device_state_t state)
 {
-    devices.push_back(device);
+    devices[idx].state = state;
 }
 
-void Devices::removeDevice(device_t device)
+void Devices::setDeviceValue(uint8_t idx, uint8_t* value, uint8_t value_size)
 {
-    for (std::vector<device_t>::iterator it = devices.begin(); it != devices.end(); ++it)
-    {
-        if (it->type == device.type)
-        {
-            devices.erase(it);
-            break;
-        }
-    }
+    devices[idx].value = value;
+    devices[idx].value_size = value_size;
 }
 
-void Devices::updateDevice(device_t device)
+device_t Devices::getDevice(uint8_t idx)
 {
-    for (std::vector<device_t>::iterator it = devices.begin(); it != devices.end(); ++it)
-    {
-        if (it->type == device.type)
-        {
-            it->state = device.state;
-            it->value = device.value;
-            it->value_size = device.value_size;
-            break;
-        }
-    }
-}
-
-void Devices::updateDeviceState(device_t device, device_state_t state)
-{
-    for (std::vector<device_t>::iterator it = devices.begin(); it != devices.end(); ++it)
-    {
-        if (it->type == device.type)
-        {
-            it->state = state;
-            break;
-        }
-    }
-}
-
-void Devices::updateDeviceValue(device_t device, uint8_t* value, uint8_t value_size)
-{
-    for (std::vector<device_t>::iterator it = devices.begin(); it != devices.end(); ++it)
-    {
-        if (it->type == device.type)
-        {
-            it->value = value;
-            it->value_size = value_size;
-            break;
-        }
-    }
-}
-
-device_t Devices::getDevice(device_type_t type)
-{
-    for (std::vector<device_t>::iterator it = devices.begin(); it != devices.end(); ++it)
-    {
-        if (it->type == type)
-        {
-            return *it;
-        }
-    }
-    device_t device;
-    device.type = UNKNOWN_DEVICE;
-    device.state = error;
-    device.value = NULL;
-    device.value_size = 0;
-    return device;
+    return devices[idx];
 }
 
 std::vector<device_t> Devices::getDevices()
