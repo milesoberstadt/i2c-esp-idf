@@ -1,4 +1,4 @@
-#include "devices.hpp"
+#include "devices.h"
 
 Devices::Devices()
 {
@@ -29,4 +29,22 @@ device_t Devices::getDevice(uint8_t idx)
 std::vector<device_t> Devices::getDevices()
 {
     return devices;
+}
+
+void Devices::attach(DevicesObserver *observer)
+{
+    observers.push_back(std::shared_ptr<DevicesObserver>(observer));
+}
+
+void Devices::detach(DevicesObserver *observer)
+{
+    observers.erase(std::remove_if(observers.begin(), observers.end(), [observer](std::shared_ptr<DevicesObserver> o) { return o.get() == observer; }), observers.end());
+}
+
+void Devices::notify()
+{
+    for (auto observer : observers)
+    {
+        observer->update(devices);
+    }
 }

@@ -1,5 +1,5 @@
-#if !defined(__UI_HPP__)
-#define __UI_HPP__
+#if !defined(__UI_H__)
+#define __UI_H__
 
 #include <memory>
 
@@ -23,6 +23,11 @@ class UI
 
         Arduino_GFX* getGFX() { return gfx.get(); }
 
+        void background();
+        void titleStyle();
+        void textStyle();
+        void smallTextStyle();
+
     private:
         UI();
         ~UI();
@@ -37,4 +42,4 @@ inline UI& uiInstance()
     return UI::getInstance();
 }
 
-#endif // __UI_HPP__
+#endif // __UI_H__

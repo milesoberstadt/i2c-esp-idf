@@ -1,4 +1,4 @@
-#include "ui.hpp"
+#include "ui.h"
 
 UI::UI()
 {
@@ -64,4 +64,34 @@ UI::~UI()
     #ifdef GFX_BL
         digitalWrite(GFX_BL, LOW);
     #endif
+}
+
+void UI::background()
+{
+    gfx->fillScreen(BLACK);
+}
+
+void UI::titleStyle()
+{
+    gfx->setRotation(90);
+    gfx->setTextSize(tsa);
+    gfx->setTextColor(WHITE);
+    gfx->setTextWrap(false);
+    gfx->setCursor(0, 0);
+}
+
+void UI::textStyle()
+{
+    gfx->setRotation(1);
+    gfx->setTextSize(tsb);
+    gfx->setTextColor(WHITE);
+    gfx->setTextWrap(false);
+}
+
+void UI::smallTextStyle()
+{
+    gfx->setRotation(1);
+    gfx->setTextSize(tsc);
+    gfx->setTextColor(WHITE);
+    gfx->setTextWrap(false);
 }
