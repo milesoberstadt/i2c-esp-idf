@@ -27,7 +27,6 @@ typedef struct {
     bool is_pressed;
 } button_state_t;
 
-
 typedef void (*data_callback_t)(size_t device_idx, size_t char_idx, uint8_t *value, uint16_t value_len);
 
 typedef struct {
