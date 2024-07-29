@@ -1,9 +1,6 @@
 #ifndef __CONSTANTS_H__
 #define __CONSTANTS_H__
 
-#include "esp_bt_defs.h"
-#include "esp_gatt_defs.h"
-
 /* Maximum connected devices count */
 #define MAX_DEVICES 4
 
@@ -35,15 +32,5 @@
 #define I2C_SLAVE_ADDR              0x28
 
 #define I2C_BUFFER_SIZE 20
-
-/* Do no touch */
-
-#define INVALID_HANDLE   0
-#define REMOTE_NOTIFY_CHAR_UUID    0xFF01
-
-static esp_bt_uuid_t notify_descr_uuid = {
-    .len = ESP_UUID_LEN_16,
-    .uuid = {.uuid16 = ESP_GATT_UUID_CHAR_CLIENT_CONFIG,},
-};
 
 #endif

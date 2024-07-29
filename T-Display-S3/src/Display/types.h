@@ -15,30 +15,23 @@ typedef enum device_type_t {
 } device_type_t;
 
 typedef enum device_state_t {
-    error = -1,
-    disconnected = 0,
-    connected = 1,
-    pairing = 2,
-    disconnecting = 3,
-    connecting = 4,
+    dev_state_error = -1,
+    dev_state_disconnected = 0,
+    dev_state_connected = 1,
+    dev_state_pairing = 2,
+    dev_state_disconnecting = 3,
+    dev_state_connecting = 4,
 } device_state_t;
 
 typedef enum message_t {
-    error_message = 0,
-    pairing_start_message = 1,
-    pairing_stop_message = 2,
-    connected_message = 3,
-    disconnected_message = 4,
-    disconnecting_message = 5,
-    connecting_message = 6,
-    data_message = 7,
+    message_err = 0,
+    message_init_start = 1,
+    message_init_end = 2,
+    message_dev_type = 10
+    message_dev_state = 11,
+    message_dev_data = 12,
+    message_dev_selected = 13,
+    message_dev_error = 14
 } message_t;
-
-typedef struct device_t {
-    device_type_t type;
-    device_state_t state;
-    uint8_t* value;
-    uint8_t value_size;
-} device_t;
 
 #endif // __TYPES__

@@ -7,6 +7,7 @@
 #include "device_config.h"
 
 #include "led.h"
+#include "i2c_messages.h"
 
 #define EVENTS_TAG "EVENTS"
 

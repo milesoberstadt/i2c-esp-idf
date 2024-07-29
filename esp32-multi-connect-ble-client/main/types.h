@@ -52,23 +52,23 @@ typedef struct {
 } gattc_profile_inst;
 
 typedef enum device_state_t {
-    error = -1,
-    disconnected = 0,
-    connected = 1,
-    pairing = 2,
-    disconnecting = 3,
-    connecting = 4,
+    dev_state_error = -1,
+    dev_state_disconnected = 0,
+    dev_state_connected = 1,
+    dev_state_pairing = 2,
+    dev_state_disconnecting = 3,
+    dev_state_connecting = 4,
 } device_state_t;
 
 typedef enum message_t {
-    error_message = 0,
-    pairing_start_message = 1,
-    pairing_stop_message = 2,
-    connected_message = 3,
-    disconnected_message = 4,
-    disconnecting_message = 5,
-    connecting_message = 6,
-    data_message = 7,
+    msg_err = 0,
+    msg_init_start = 1,
+    msg_init_end = 2,
+    msg_dev_selected = 3,
+    msg_dev_type = 10,
+    msg_dev_state = 11,
+    msg_dev_data = 12,
+    msg_dev_error = 14
 } message_t;
 
 typedef enum preference_t {

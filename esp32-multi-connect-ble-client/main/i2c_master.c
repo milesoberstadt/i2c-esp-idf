@@ -15,7 +15,7 @@ bool i2c_master_init()
     return ret == ESP_OK;
 }
 
-bool i2c_master_write_slave(uint8_t *data_wr)
+bool i2c_master_write_slave(uint8_t *data_wr, size_t len)
 {
     vTaskDelay(1000 / portTICK_PERIOD_MS);
 
@@ -23,7 +23,7 @@ bool i2c_master_write_slave(uint8_t *data_wr)
     esp_err_t ret = i2c_master_write_to_device( I2C_MASTER_NUM, 
                                                 I2C_SLAVE_ADDR, 
                                                 data_wr, 
-                                                I2C_BUFFER_SIZE, 
+                                                len, 
                                                 1000 / portTICK_PERIOD_MS);
 
     if (ret == ESP_OK)
