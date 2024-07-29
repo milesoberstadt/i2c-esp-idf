@@ -10,8 +10,6 @@
 
 #include "types.h"
 
-#include "i2c_master.h"
-
 #define DATA_TAG "DATA"
 
 /** --- Define your device data callbacks here --- */

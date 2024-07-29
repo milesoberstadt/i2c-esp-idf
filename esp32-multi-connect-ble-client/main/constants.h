@@ -7,6 +7,9 @@
 /* Maximum connected devices count */
 #define MAX_DEVICES 4
 
+/* BLE configuration */
+#define PAIRING_DURATION 30 // seconds
+
 // led pins start from here
 #define LED_PIN GPIO_NUM_4
 // to LED_PIN + MAX_DEVICES
@@ -30,6 +33,8 @@
 #define I2C_MASTER_TX_BUF_DISABLE   0
 #define I2C_MASTER_RX_BUF_DISABLE   0
 #define I2C_SLAVE_ADDR              0x28
+
+#define I2C_BUFFER_SIZE 20
 
 /* Do no touch */
 

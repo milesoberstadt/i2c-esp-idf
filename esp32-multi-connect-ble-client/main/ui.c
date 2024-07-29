@@ -8,8 +8,7 @@ size_t get_selected_device() {
 
 void switch_selected_device() {
     selected_device = (selected_device + 1) % MAX_DEVICES;
-    start_led_blink(selected_device, 1, 100);
-    ESP_LOGI(UI_TAG, "Selected device: %d", selected_device);
+    on_device_selected(selected_device);
 }
 
 void start_pairing() {

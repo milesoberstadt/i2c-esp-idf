@@ -39,11 +39,9 @@ size_t get_char_idx_by_handle(size_t idx, uint16_t handle) {
     return -1;
 }
 
-void connection_start_handler(size_t idx) {
-    start_led_blink(idx, -1, 300);
-}
-
 void disconnect(size_t idx) {
+
+    on_device_state_changed(idx, disconnecting);
 
     char DEVICE_TAG[DEVICE_TAG_SIZE];
     generate_device_tag(idx, DEVICE_TAG);
@@ -72,16 +70,15 @@ void disconnect(size_t idx) {
     profiles[idx].device_type = UNKNOWN_DEVICE;
     profiles[idx].data_callback = NULL;
 
-    stop_led_blink(idx);
-    set_led(idx, false);
+    on_device_state_changed(idx, disconnected);
 
     ESP_LOGI(DEVICE_TAG, "DEVICE DISCONNECTED");
 
 }
 
 void connection_success_handler(size_t idx) {
-    stop_led_blink(idx);
-    set_led(idx, true);
+    
+    on_device_state_changed(idx, connected);
 
     bool ret = add_device(profiles[idx].remote_bda, profiles[idx].ble_addr_type, profiles[idx].device_type, idx);
     if (!ret) {
@@ -388,6 +385,11 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
                 break;
             }
 
+            on_data_received(   idx, 
+                                char_idx, 
+                                p_data->notify.value, 
+                                p_data->notify.value_len);
+
             profiles[idx].data_callback(idx, 
                                         char_idx, 
                                         p_data->notify.value, 
@@ -488,7 +490,9 @@ void open_profile(esp_bd_addr_t bda, esp_ble_addr_type_t ble_addr_type, size_t i
     }
 
     ESP_LOGI(GATTC_TAG, "Registering device at idx %d", idx);
-    connection_start_handler(idx);
+
+    on_device_state_changed(idx, connecting);
+    on_device_type_changed(idx, type);
 
     device_type_config_t device_config = get_device_config(type);
 

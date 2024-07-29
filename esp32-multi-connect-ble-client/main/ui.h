@@ -13,6 +13,8 @@
 #include "devices.h"
 #include "gattc.h"
 
+#include "events.h"
+
 #define UI_TAG "UI"
 
 bool init_ui();

@@ -11,7 +11,7 @@ void m_node_cb(size_t device_idx, size_t char_idx, uint8_t *value, uint16_t valu
     }
 
     esp_log_buffer_hex(DATA_TAG, value, value_len);
-    //i2c_master_write_slave(value, value_len);
+    
 }
 
 void a_node_cb(size_t device_idx, size_t char_idx, uint8_t *value, uint16_t value_len) {

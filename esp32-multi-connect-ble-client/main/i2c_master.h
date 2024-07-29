@@ -8,12 +8,10 @@
 #include "constants.h"
 #include <stdbool.h>
 
-static const char *TAG = "I2C_Master";
-uint8_t data_received;
-esp_err_t ret;
+#define I2C_TAG "I2C_Master"
 
 bool i2c_master_init();
-bool i2c_master_write_slave(uint8_t *data_wr, size_t length);
+bool i2c_master_write_slave(uint8_t *data_wr);
 bool i2c_master_read_slave();
 
 #endif // __I2C_MASTER_H__

@@ -17,9 +17,10 @@
 #include "device_config.h"
 #include "constants.h"
 #include "uuid128.h"
-#include "led.h"
 #include "types.h"
 #include "devices.h"
+
+#include "events.h"
 
 #define GATTC_TAG "ESP32_MCBC_GATTC"
 #define DEVICE_TAG_SIZE 16

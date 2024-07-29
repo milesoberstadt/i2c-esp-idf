@@ -24,14 +24,14 @@ typedef enum device_state_t {
 } device_state_t;
 
 typedef enum message_t {
-    error_message = -1,
-    no_message = 0,
-    pairing_message = 1,
-    connected_message = 2,
-    disconnected_message = 3,
-    disconnecting_message = 4,
-    connecting_message = 5,
-    data_message = 6,
+    error_message = 0,
+    pairing_start_message = 1,
+    pairing_stop_message = 2,
+    connected_message = 3,
+    disconnected_message = 4,
+    disconnecting_message = 5,
+    connecting_message = 6,
+    data_message = 7,
 } message_t;
 
 typedef struct device_t {
