@@ -27,11 +27,19 @@ typedef enum message_t {
     message_err = 0,
     message_init_start = 1,
     message_init_end = 2,
-    message_dev_type = 10
+    message_dev_type = 10,
     message_dev_state = 11,
     message_dev_data = 12,
     message_dev_selected = 13,
     message_dev_error = 14
 } message_t;
+
+typedef struct device_t {
+    device_type_t type;
+    device_state_t state;
+    uint8_t* value;
+    uint8_t value_size;
+} device_t;
+
 
 #endif // __TYPES__

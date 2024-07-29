@@ -40,41 +40,63 @@ void I2CSlave::onRequest() {
 }
 
 void I2CSlave::processMessage(uint8_t* data, size_t length) {
-    message_t msgType;
-    device_t device;
-    // Extract message type
-    memcpy(&msgType, data, sizeof(message_t));
+
+    message_t msg_type;
+    uint8_t dev_idx;
+    uint8_t msg_len;
+    
+    // Extract message header
+    memcpy(&msg_type, data, sizeof(message_t));
     data += sizeof(message_t);
 
-    // Extract device information
-    memcpy(&device, data, sizeof(device_t));
+    memcpy(&dev_idx, data, sizeof(uint8_t));
+    data += sizeof(uint8_t);
 
-    // Handle the message
-    switch (msgType) {
-        case pairing_message:
-            Serial.printf("Device %d pairing\n", device.type);
+    memcpy(&msg_len, data, sizeof(uint8_t));
+    data += sizeof(uint8_t);
+
+    // Handle devices message
+    switch (msg_type) {
+        case message_err:
+            Serial.printf("Error received\n");
             break;
-        case connected_message:
-            Serial.printf("Device %d connected\n", device.type);
+        case message_init_start:
+            Serial.printf("Initialisation started\n");
             break;
-        case disconnected_message:
-            Serial.printf("Device %d disconnected\n", device.type);
+        case message_init_end:
+            Serial.printf("Initialisation end\n");
             break;
-        case disconnecting_message:
-            Serial.printf("Device %d disconnecting\n", device.type);
-            break;
-        case connecting_message:
-            Serial.printf("Device %d connecting\n", device.type);
-            break;
-        case data_message:
-            Serial.printf("Device %d data received: ", device.type);
-            for (int i = 0; i < device.value_size; i++) {
-                Serial.printf("0x%02X ", device.value[i]);
+        case message_dev_type:
+            {
+                device_type_t dev_type = (device_type_t) data[0];
+
+                Serial.printf("Device %d type: %s\n", dev_idx, device_type_str(dev_type).c_str());
             }
-            Serial.println();
+            break;
+        case message_dev_state:
+            {
+                device_state_t dev_state = (device_state_t) data[0];
+
+                Serial.printf("Device %d state: %s\n", dev_idx, device_state_str(dev_state).c_str());
+            }
+            break;
+        case message_dev_data:
+
+            Serial.printf("Device %d data: %s\n", dev_idx, device_value_str(data, msg_len).c_str());
+
+            break;
+        case message_dev_selected:
+
+            Serial.printf("Device %d selected\n", dev_idx);
+
+            break;
+        case message_dev_error:
+            
+            Serial.printf("Device %d error\n", dev_idx);
+
             break;
         default:
-            Serial.println("Unknown message received");
+            Serial.println("Unknown message received\n");
             break;
     }
 }
