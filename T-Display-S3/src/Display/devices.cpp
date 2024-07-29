@@ -13,12 +13,14 @@ Devices::~Devices()
 void Devices::setDeviceState(uint8_t idx, device_state_t state)
 {
     devices[idx].state = state;
+    notify();
 }
 
 void Devices::setDeviceValue(uint8_t idx, uint8_t* value, uint8_t value_size)
 {
     devices[idx].value = value;
     devices[idx].value_size = value_size;
+    notify();
 }
 
 device_t Devices::getDevice(uint8_t idx)

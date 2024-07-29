@@ -24,9 +24,16 @@ class UI
         Arduino_GFX* getGFX() { return gfx.get(); }
 
         void background();
+        void background(uint8_t x, uint8_t y, uint8_t w, uint8_t h);
         void titleStyle();
         void textStyle();
         void smallTextStyle();
+
+        uint8_t width() { return w; }
+        uint8_t height() { return h; }
+        uint8_t size() { return n; }
+        uint8_t center_x() { return cx; }
+        uint8_t center_y() { return cy; }
 
     private:
         UI();

@@ -71,6 +71,10 @@ void UI::background()
     gfx->fillScreen(BLACK);
 }
 
+void UI::background(uint8_t x, uint8_t y, uint8_t w, uint8_t h) {
+    gfx->fillRect(x, y, w, h, BLACK);
+}
+
 void UI::titleStyle()
 {
     gfx->setRotation(90);
