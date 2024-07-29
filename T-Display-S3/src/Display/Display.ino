@@ -21,12 +21,12 @@ void setup()
     Serial.begin(115200);
     Serial.println("Hello T-Display-S3");
 
-    UI& ui = uiInstance();
+    UI& ui = UI::instance();
 
     ui.getGFX()->print("Hello T-Display-S3");
 
     layout = new LayoutDevices();
-    devices = &Devices::getInstance();
+    devices = &Devices::instance();
 
     devices->attach((LayoutDevices*)layout);
 

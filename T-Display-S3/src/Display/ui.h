@@ -12,7 +12,7 @@
 class UI 
 {
     public:
-        static UI& getInstance()
+        static UI& instance()
         {
             static UI instance;
             return instance;
@@ -43,10 +43,5 @@ class UI
         std::unique_ptr<Arduino_GFX> gfx;
         std::unique_ptr<Arduino_DataBus> bus;
 };
-
-inline UI& uiInstance()
-{
-    return UI::getInstance();
-}
 
 #endif // __UI_H__

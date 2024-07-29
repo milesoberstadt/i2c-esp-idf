@@ -12,7 +12,7 @@
 
 class Devices: public DevicesObservable {
     public:
-        static Devices& getInstance()
+        static Devices& instance()
         {
             static Devices instance;
             return instance;
@@ -21,11 +21,12 @@ class Devices: public DevicesObservable {
         Devices(const Devices&) = delete;
         Devices& operator=(const Devices&) = delete;
 
-        void setDeviceState(uint8_t idx, device_state_t state);
-        void setDeviceValue(uint8_t idx, uint8_t* value, uint8_t value_size);
+        void set_device_type(uint8_t idx, device_type_t type);
+        void set_device_state(uint8_t idx, device_state_t state);
+        void set_device_value(uint8_t idx, uint8_t* value, uint8_t value_size);
 
-        device_t getDevice(uint8_t idx);
-        std::vector<device_t> getDevices();
+        device_t get_device(uint8_t idx);
+        std::vector<device_t> get_devices();
 
         void attach(DevicesObserver *observer);
         void detach(DevicesObserver *observer);

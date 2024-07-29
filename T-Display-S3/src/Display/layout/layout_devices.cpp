@@ -3,7 +3,7 @@
 LayoutDevices::LayoutDevices()
 {
 
-    UI &ui = uiInstance();
+    UI &ui = UI::instance();
 
     ui.background();
     ui.titleStyle();
@@ -18,9 +18,9 @@ LayoutDevices::~LayoutDevices()
 void LayoutDevices::draw()
 {
 
-    Devices &devices = Devices::getInstance();
+    Devices &devices = Devices::instance();
 
-    std::vector<device_t> devices_list = devices.getDevices();
+    std::vector<device_t> devices_list = devices.get_devices();
 
     this->update(devices_list);
 
@@ -82,7 +82,7 @@ String LayoutDevices::device_value_str(uint8_t *value, uint8_t value_size)
 void LayoutDevices::update(const std::vector<device_t> &devices)
 {
 
-    UI &ui = uiInstance();
+    UI &ui = UI::instance();
 
     ui.background(0, 0, ui.width() - 30, ui.height());
     ui.getGFX()->setCursor(0, 0);

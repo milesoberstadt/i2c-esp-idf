@@ -8,27 +8,34 @@ Devices::Devices()
 Devices::~Devices()
 {
     devices.clear();
+    observers.clear();
 }
 
-void Devices::setDeviceState(uint8_t idx, device_state_t state)
+void Devices::set_device_state(uint8_t idx, device_state_t state)
 {
     devices[idx].state = state;
     notify();
 }
 
-void Devices::setDeviceValue(uint8_t idx, uint8_t* value, uint8_t value_size)
+void Devices::set_device_value(uint8_t idx, uint8_t* value, uint8_t value_size)
 {
     devices[idx].value = value;
     devices[idx].value_size = value_size;
     notify();
 }
 
-device_t Devices::getDevice(uint8_t idx)
+void Devices::set_device_type(uint8_t idx, device_type_t type)
+{
+    devices[idx].type = type;
+    notify();
+}
+
+device_t Devices::get_device(uint8_t idx)
 {
     return devices[idx];
 }
 
-std::vector<device_t> Devices::getDevices()
+std::vector<device_t> Devices::get_devices()
 {
     return devices;
 }
