@@ -71,6 +71,8 @@ void I2CSlave::processMessage(uint8_t* data, size_t length) {
                 device_type_t dev_type = (device_type_t) data[0];
 
                 Serial.printf("Device %d type: %s\n", dev_idx, device_type_str(dev_type).c_str());
+
+                Devices::getInstance().set_device_type(dev_idx, dev_type);
             }
             break;
         case message_dev_state:
@@ -78,11 +80,15 @@ void I2CSlave::processMessage(uint8_t* data, size_t length) {
                 device_state_t dev_state = (device_state_t) data[0];
 
                 Serial.printf("Device %d state: %s\n", dev_idx, device_state_str(dev_state).c_str());
+
+                Devices::getInstance().set_device_state(dev_idx, dev_state);
             }
             break;
         case message_dev_data:
 
             Serial.printf("Device %d data: %s\n", dev_idx, device_value_str(data, msg_len).c_str());
+
+            Devices::getInstance().set_device_value(dev_idx, data, msg_len);
 
             break;
         case message_dev_selected:

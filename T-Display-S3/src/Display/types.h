@@ -1,9 +1,6 @@
 #if !defined(__TYPES__)
 #define __TYPES__
 
-#include <stdint.h>
-
-#define DEVICE_TYPE_COUNT 3
 #define DEVICE_COUNT 6
 
 // Give a unique ID to each device type
