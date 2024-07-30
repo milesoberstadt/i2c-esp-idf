@@ -47,8 +47,14 @@ void on_device_state_changed(size_t dev_idx, device_state_t state) {
         start_led_blink(dev_idx, -1, 300);
         break;
     case dev_state_connecting:
+        start_led_blink(dev_idx, -1, 100);
+        break;
+    case dev_state_connected:
         stop_led_blink(dev_idx);
         set_led(dev_idx, true);
+        break;
+    case dev_state_disconnecting:
+        start_led_blink(dev_idx, -1, 100);
         break;
     case dev_state_disconnected:
         stop_led_blink(dev_idx);
