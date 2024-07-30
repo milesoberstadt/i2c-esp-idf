@@ -28,7 +28,9 @@ typedef enum message_t {
     message_dev_state = 11,
     message_dev_data = 12,
     message_dev_selected = 13,
-    message_dev_error = 14
+    message_dev_error = 14,
+    msg_screen_on = 50,
+    msg_screen_off = 51,
 } message_t;
 
 typedef struct device_t {

@@ -68,7 +68,9 @@ typedef enum message_t {
     msg_dev_type = 10,
     msg_dev_state = 11,
     msg_dev_data = 12,
-    msg_dev_error = 14
+    msg_dev_error = 14,
+    msg_screen_on = 50,
+    msg_screen_off = 51,
 } message_t;
 
 typedef enum preference_t {

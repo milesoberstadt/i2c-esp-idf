@@ -1,5 +1,10 @@
 #include "events.h"
 
+void on_screen_state_changed(bool is_screen_on) {
+    ESP_LOGI(EVENTS_TAG, "Screen %s", is_screen_on ? "on" : "off");
+    set_led(0, is_screen_on);
+}
+
 void on_pairing_start(size_t dev_idx) {
     ESP_LOGI(EVENTS_TAG, "Pairing started for device %d", dev_idx);
     start_led_blink(dev_idx, -1, 500);
@@ -57,8 +62,7 @@ void on_device_state_changed(size_t dev_idx, device_state_t state) {
         start_led_blink(dev_idx, -1, 100);
         break;
     case dev_state_disconnected:
-        stop_led_blink(dev_idx);
-        set_led(dev_idx, false);
+        reset_led(dev_idx);
         break;
     default:
         break;

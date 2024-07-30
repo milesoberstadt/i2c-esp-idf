@@ -6,6 +6,7 @@
 #include "i2c_master.h"
 #include "types.h"
 #include "device_config.h"
+#include "ui.h"
 
 #define I2C_MSG_TAG "I2C_MSG"
 

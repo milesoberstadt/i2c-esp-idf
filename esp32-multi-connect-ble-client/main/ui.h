@@ -21,6 +21,8 @@ bool init_ui();
 
 size_t get_selected_device();
 
+bool get_is_screen_on();
+
 void switch_selected_device();
 
 #endif // __UI_H__

@@ -2,6 +2,7 @@
 #define __EVENTS_H__
 
 #include <stdio.h>
+#include <stdbool.h>
 
 #include "types.h"
 #include "device_config.h"
@@ -10,6 +11,8 @@
 #include "i2c_messages.h"
 
 #define EVENTS_TAG "EVENTS"
+
+void on_screen_state_changed(bool is_screen_on);
 
 void on_pairing_start(size_t dev_idx);
 

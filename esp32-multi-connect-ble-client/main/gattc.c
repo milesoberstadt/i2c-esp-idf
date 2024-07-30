@@ -47,7 +47,7 @@ size_t get_char_idx_by_handle(size_t idx, uint16_t handle) {
 void disconnect(size_t idx) {
 
     on_device_state_changed(idx, dev_state_disconnecting);
-
+    
     char DEVICE_TAG[DEVICE_TAG_SIZE];
     generate_device_tag(idx, DEVICE_TAG);
 
@@ -65,7 +65,11 @@ void disconnect(size_t idx) {
             return;
         } 
         
+        profiles[idx].app_id = ESP_GATT_IF_NONE;
+        profiles[idx].conn_id = ESP_GATT_IF_NONE;
         profiles[idx].gattc_if = ESP_GATT_IF_NONE;
+
+        ESP_LOGI(DEVICE_TAG, "cleared profile");
         
     }
 
@@ -458,6 +462,12 @@ void esp_gattc_cb(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_ga
 }
 
 bool init_gattc() {
+
+    // init profiles interfaces
+    for (size_t i = 0; i < MAX_DEVICES; i++) {
+        profiles[i].gattc_if = ESP_GATT_IF_NONE;
+    }
+
     //register the callback function to the gattc module
     esp_err_t ret = esp_ble_gattc_register_callback(esp_gattc_cb);
     if(ret){
@@ -470,7 +480,7 @@ bool init_gattc() {
     if (ret){
         ESP_LOGE(GATTC_TAG, "set local  MTU failed, error code = %x", ret);
         return false;
-    }    
+    }
 
     ESP_LOGI(GATTC_TAG, "GATTC initialized");
     return true;
@@ -480,7 +490,7 @@ bool init_gattc() {
 // if called with idx = -1, will try to find next available profile
 void open_profile(esp_bd_addr_t bda, esp_ble_addr_type_t ble_addr_type, size_t idx, device_type_t type) {
 
-    if (idx != -1 && !is_profile_active(idx)) {
+    if (idx != -1 && is_profile_active(idx)) {
         ESP_LOGE(GATTC_TAG, "Trying to open profile at idx %d, but profile is already in use", idx);
         return;
     }

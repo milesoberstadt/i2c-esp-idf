@@ -15,13 +15,13 @@ bool i2c_master_init()
     return ret == ESP_OK;
 }
 
-bool i2c_master_write_slave(uint8_t *data_wr, size_t len)
+bool i2c_master_write_slave(uint8_t *data_wr, size_t len, uint8_t addr)
 {
     vTaskDelay(1000 / portTICK_PERIOD_MS);
 
     // Envoie des données à l'esclave
     esp_err_t ret = i2c_master_write_to_device( I2C_MASTER_NUM, 
-                                                I2C_SLAVE_ADDR, 
+                                                addr, 
                                                 data_wr, 
                                                 len, 
                                                 1000 / portTICK_PERIOD_MS);
@@ -37,14 +37,14 @@ bool i2c_master_write_slave(uint8_t *data_wr, size_t len)
     return ret;
 }
 
-bool i2c_master_read_slave()
+bool i2c_master_read_slave(uint8_t addr)
 {
     vTaskDelay(1000 / portTICK_PERIOD_MS);
     // Lecture des données de l'esclave
 
     uint8_t data_received[I2C_BUFFER_SIZE];
     esp_err_t ret = i2c_master_read_from_device(I2C_MASTER_NUM, 
-                                                I2C_SLAVE_ADDR, 
+                                                addr, 
                                                 data_received, 
                                                 I2C_BUFFER_SIZE, 
                                                 1000 / portTICK_PERIOD_MS);
