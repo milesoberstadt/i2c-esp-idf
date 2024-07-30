@@ -1,29 +1,25 @@
 #include "slave.h"
 
 I2CSlave::I2CSlave() {
-    // Constructor
+    Wire.begin(I2C_SLAVE_SDA, I2C_SLAVE_SCL, I2C_SLAVE_ADDR);
+    Wire.setClock(100000); // Set I2C clock speed
+    Wire.onReceive(I2CSlave::on_receive_static);
+    Wire.onRequest(I2CSlave::on_request_static);
 }
 
 I2CSlave::~I2CSlave() {
     // Destructor
 }
 
-void I2CSlave::begin() {
-    Wire.begin(I2C_SLAVE_SDA, I2C_SLAVE_SCL, I2C_SLAVE_ADDR);
-    Wire.setClock(100000); // Set I2C clock speed
-    Wire.onReceive(I2CSlave::onReceiveStatic);
-    Wire.onRequest(I2CSlave::onRequestStatic);
+void I2CSlave::on_receive_static(int byteCount) {
+    I2CSlave::instance().on_receive(byteCount);
 }
 
-void I2CSlave::onReceiveStatic(int byteCount) {
-    I2CSlave::getInstance().onReceive(byteCount);
+void I2CSlave::on_request_static() {
+    I2CSlave::instance().on_request();
 }
 
-void I2CSlave::onRequestStatic() {
-    I2CSlave::getInstance().onRequest();
-}
-
-void I2CSlave::onReceive(int byteCount) {
+void I2CSlave::on_receive(int byteCount) {
     if (byteCount < sizeof(message_t) + sizeof(device_t)) {
         // Not enough data to form a valid message
         return;
@@ -31,15 +27,15 @@ void I2CSlave::onReceive(int byteCount) {
 
     uint8_t buffer[byteCount];
     Wire.readBytes(buffer, byteCount);
-    processMessage(buffer, byteCount);
+    process_message(buffer, byteCount);
 }
 
-void I2CSlave::onRequest() {
+void I2CSlave::on_request() {
     // Placeholder for handling data request from master
     // You can implement your logic to send data back to the master if needed
 }
 
-void I2CSlave::processMessage(uint8_t* data, size_t length) {
+void I2CSlave::process_message(uint8_t* data, size_t length) {
 
     message_t msg_type;
     uint8_t dev_idx;
@@ -72,7 +68,7 @@ void I2CSlave::processMessage(uint8_t* data, size_t length) {
 
                 Serial.printf("Device %d type: %s\n", dev_idx, device_type_str(dev_type).c_str());
 
-                Devices::getInstance().set_device_type(dev_idx, dev_type);
+                Devices::instance().set_device_type(dev_idx, dev_type);
             }
             break;
         case message_dev_state:
@@ -81,14 +77,14 @@ void I2CSlave::processMessage(uint8_t* data, size_t length) {
 
                 Serial.printf("Device %d state: %s\n", dev_idx, device_state_str(dev_state).c_str());
 
-                Devices::getInstance().set_device_state(dev_idx, dev_state);
+                Devices::instance().set_device_state(dev_idx, dev_state);
             }
             break;
         case message_dev_data:
 
             Serial.printf("Device %d data: %s\n", dev_idx, device_value_str(data, msg_len).c_str());
 
-            Devices::getInstance().set_device_value(dev_idx, data, msg_len);
+            Devices::instance().set_device_value(dev_idx, data, msg_len);
 
             break;
         case message_dev_selected:
