@@ -20,7 +20,7 @@ void I2CSlave::on_request_static() {
 }
 
 void I2CSlave::on_receive(int byteCount) {
-    if (byteCount < sizeof(message_t) + sizeof(device_t)) {
+    if (byteCount < sizeof(msg_t) + sizeof(device_t)) {
         // Not enough data to form a valid message
         return;
     }
@@ -37,13 +37,13 @@ void I2CSlave::on_request() {
 
 void I2CSlave::process_message(uint8_t* data, size_t length) {
 
-    message_t msg_type;
+    msg_t msg_type;
     uint8_t dev_idx;
     uint8_t msg_len;
     
     // Extract message header
-    memcpy(&msg_type, data, sizeof(message_t));
-    data += sizeof(message_t);
+    memcpy(&msg_type, data, sizeof(msg_t));
+    data += sizeof(msg_t);
 
     memcpy(&dev_idx, data, sizeof(uint8_t));
     data += sizeof(uint8_t);
@@ -53,16 +53,16 @@ void I2CSlave::process_message(uint8_t* data, size_t length) {
 
     // Handle devices message
     switch (msg_type) {
-        case message_err:
+        case msg_err:
             Serial.printf("Error received\n");
             break;
-        case message_init_start:
+        case msg_init_start:
             Serial.printf("Initialisation started\n");
             break;
-        case message_init_end:
+        case msg_init_end:
             Serial.printf("Initialisation end\n");
             break;
-        case message_dev_type:
+        case msg_dev_type:
             {
                 device_type_t dev_type = (device_type_t) data[0];
 
@@ -71,7 +71,7 @@ void I2CSlave::process_message(uint8_t* data, size_t length) {
                 Devices::instance().set_device_type(dev_idx, dev_type);
             }
             break;
-        case message_dev_state:
+        case msg_dev_state:
             {
                 device_state_t dev_state = (device_state_t) data[0];
 
@@ -80,21 +80,28 @@ void I2CSlave::process_message(uint8_t* data, size_t length) {
                 Devices::instance().set_device_state(dev_idx, dev_state);
             }
             break;
-        case message_dev_data:
+        case msg_dev_data:
 
             Serial.printf("Device %d data: %s\n", dev_idx, device_value_str(data, msg_len).c_str());
 
             Devices::instance().set_device_value(dev_idx, data, msg_len);
 
             break;
-        case message_dev_selected:
+        case msg_dev_selected:
 
             Serial.printf("Device %d selected\n", dev_idx);
 
             break;
-        case message_dev_error:
+        case msg_dev_error:
             
             Serial.printf("Device %d error\n", dev_idx);
+
+            break;
+        case msg_screen_off:
+
+            Serial.printf("Screen off\n");
+
+            start_sleeping();
 
             break;
         default:

@@ -6,6 +6,7 @@
 #include "types.h"
 #include "devices.h"
 #include "utils.h"
+#include "sleep.h"
 
 // Pin configuration for I2C on T-Display S3
 #define I2C_SLAVE_SDA 8
