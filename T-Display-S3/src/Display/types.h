@@ -21,14 +21,14 @@ typedef enum device_state_t {
 } device_state_t;
 
 typedef enum message_t {
-    message_err = 0,
-    message_init_start = 1,
-    message_init_end = 2,
-    message_dev_type = 10,
-    message_dev_state = 11,
-    message_dev_data = 12,
-    message_dev_selected = 13,
-    message_dev_error = 14,
+    msg_err = 0,
+    msg_init_start = 1,
+    msg_init_end = 2,
+    msg_dev_selected = 3,
+    msg_dev_type = 10,
+    msg_dev_state = 11,
+    msg_dev_data = 12,
+    msg_dev_error = 14,
     msg_screen_on = 50,
     msg_screen_off = 51,
 } message_t;

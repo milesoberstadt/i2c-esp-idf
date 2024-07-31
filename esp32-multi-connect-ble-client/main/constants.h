@@ -20,6 +20,9 @@
 #define SCREEN_BUTTON_PIN GPIO_NUM_15
 #define BUTTON_DEBOUNCE_TIME 50 // ms
 
+/* Display */
+#define DISPLAY_WAKEUP_PIN GPIO_NUM_18
+
 /* Storage*/
 #define PREFERENCES_PARTITION "MCBC"
 

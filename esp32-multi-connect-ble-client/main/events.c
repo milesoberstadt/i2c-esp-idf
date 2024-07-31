@@ -2,7 +2,13 @@
 
 void on_screen_state_changed(bool is_screen_on) {
     ESP_LOGI(EVENTS_TAG, "Screen %s", is_screen_on ? "on" : "off");
-    set_led(0, is_screen_on);
+
+    if (is_screen_on) {
+        display_wake();
+    } else {
+        display_sleep();
+    }
+
 }
 
 void on_pairing_start(size_t dev_idx) {

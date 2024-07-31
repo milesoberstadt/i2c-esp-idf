@@ -20,7 +20,7 @@ void I2CSlave::on_request_static() {
 }
 
 void I2CSlave::on_receive(int byteCount) {
-    if (byteCount < sizeof(msg_t) + sizeof(device_t)) {
+    if (byteCount < sizeof(message_t) + sizeof(device_t)) {
         // Not enough data to form a valid message
         return;
     }
@@ -37,13 +37,13 @@ void I2CSlave::on_request() {
 
 void I2CSlave::process_message(uint8_t* data, size_t length) {
 
-    msg_t msg_type;
+    message_t msg_type;
     uint8_t dev_idx;
     uint8_t msg_len;
     
     // Extract message header
-    memcpy(&msg_type, data, sizeof(msg_t));
-    data += sizeof(msg_t);
+    memcpy(&msg_type, data, sizeof(message_t));
+    data += sizeof(message_t);
 
     memcpy(&dev_idx, data, sizeof(uint8_t));
     data += sizeof(uint8_t);
