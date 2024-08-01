@@ -19,7 +19,6 @@ bool i2c_master_write_slave(uint8_t *data_wr, size_t len, uint8_t addr)
 {
     vTaskDelay(1000 / portTICK_PERIOD_MS);
 
-    // Envoie des données à l'esclave
     esp_err_t ret = i2c_master_write_to_device( I2C_MASTER_NUM, 
                                                 addr, 
                                                 data_wr, 
@@ -37,24 +36,19 @@ bool i2c_master_write_slave(uint8_t *data_wr, size_t len, uint8_t addr)
     return ret;
 }
 
-bool i2c_master_read_slave(uint8_t addr)
+bool i2c_master_read_slave(uint8_t addr, uint8_t *data_received)
 {
     vTaskDelay(1000 / portTICK_PERIOD_MS);
-    // Lecture des données de l'esclave
 
-    uint8_t data_received[I2C_BUFFER_SIZE];
     esp_err_t ret = i2c_master_read_from_device(I2C_MASTER_NUM, 
                                                 addr, 
                                                 data_received, 
                                                 I2C_BUFFER_SIZE, 
                                                 1000 / portTICK_PERIOD_MS);
-    if (ret == ESP_OK)
-    {
-        ESP_LOGI(I2C_TAG, "Data received: %s", data_received);
-    }
-    else
+    if (ret != ESP_OK)
     {
         ESP_LOGE(I2C_TAG, "Error receiving data: %s", esp_err_to_name(ret));
+        return false;
     }
-    return ret;
+    return true;
 }
