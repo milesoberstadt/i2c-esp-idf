@@ -19,7 +19,8 @@
 
 // A-Node
 #define A_NODE_SERVICE_UUID "0c7e1964-3616-4132-bbab-86afff1d9654"
-#define WIND_UUID "e2238e3b-702c-406f-bd63-b3e977307e1e"
+#define WIND_SPEED_UUID "e2238e3b-702c-406f-bd63-b3e977307e1e"
+#define WIND_DIRECTION_UUID "fbf9ad3a-cef4-41d9-a08b-06f8424a1fb0"
 
 
 /* --- TIME & DURATIONS --- */
@@ -54,12 +55,39 @@
 
 #if NODE_TYPE == A_NODE
   BLEService dataService(A_NODE_SERVICE_UUID);
-  BLECharacteristic windCharacteristic(WIND_UUID, BLERead | BLENotify, 100);
-  int sensorValue = 0;
-  float sensorVoltage = 0;
+
+  BLEUnsignedIntCharacteristic windSpeedCharacteristic(WIND_SPEED_UUID, BLERead | BLENotify);
+  BLEUnsignedIntCharacteristic windDirectionCharacteristic(WIND_DIRECTION_UUID, BLERead | BLENotify); 
+
+  int speedSensorValue = 0;
+  float speedSensorVoltage = 0;
   float windSpeed = 0;
   const float referenceVoltage = 5.0;  // (0-5V)
   const float maxWindSpeed = 30.0;     // (0-30 m/s)
+
+  bool windSpeedEnabled = false;
+  bool windDirectionEnabled = false;
+
+  const byte O2[] = {0x01 ,0x03 ,0x00 ,0x00 ,0x00 ,0x02 ,0xC4 ,0x0B};
+  byte windDirectionValues[20];
+
+  int calculateWindDirection() {
+    // digitalWrite(DE, HIGH);
+    // digitalWrite(RE, HIGH);
+    delay(10);
+    if (Serial1.write(O2, sizeof(O2)) == 8) {
+      // digitalWrite(DE, LOW);
+      // digitalWrite(RE, LOW);
+      for (byte i = 0; i < 11; i++) {
+        //Serial.print(mod.read(),HEX);
+          windDirectionValues[i] = Serial1.read();
+        //Serial.print(values[i], HEX);
+        //Serial.print(" ");
+      }
+    }
+    return ((windDirectionValues[5]*256)+windDirectionValues[6]);
+  }
+
 #endif
 
 bool isAdvertising = false;
@@ -85,14 +113,27 @@ void setup() {
 
   /* A_NODE SETUP */
   #if NODE_TYPE == A_NODE
+
+    // Init wind direction sensor
+    Serial1.begin(9600);
+
+    if (Serial1.available() > 0) {
+      Serial.println("Wind direction sensor OK!");
+      windDirectionEnabled = true;
+      dataService.addCharacteristic(windDirectionCharacteristic);
+    } else {
+      Serial.println("Wind direction sensor error");
+    }
+
     // Read initial value from anemometer sensor
-    sensorValue = analogRead(ANEMOMETER_PIN);
-    if (sensorValue == 0) {
+    speedSensorValue = analogRead(ANEMOMETER_PIN);
+    if (speedSensorValue == 0) {
       Serial.println("Anemometer error");
     } else {
-      Serial.println("Anemometer OK!");
+      Serial.println("Anemometer OK!");    
+      windSpeedEnabled = true;
+      dataService.addCharacteristic(windSpeedCharacteristic);
     }
-    dataService.addCharacteristic(windCharacteristic);
   #endif
   
   if (!BLE.begin()) {
@@ -126,9 +167,9 @@ void loop() {
       while (central.connected()) {
         digitalWrite(LED_PIN, LOW);
 
-        /* M_NODE SENDING DATA */
-
         #if NODE_TYPE == M_NODE
+          /* M_NODE SENDING DATA */
+
           char gyro[100];
           sprintf(gyro, "%.2f;%.2f;%.2f", myIMU.readFloatGyroX(), myIMU.readFloatGyroY(), myIMU.readFloatGyroZ());
           gyroCharacteristic.writeValue(gyro);
@@ -140,24 +181,35 @@ void loop() {
           Serial.println(accelerometer);
         #endif
 
-        #if NODE_TYPE == A_NODE
-          // Read
-          sensorValue = analogRead(ANEMOMETER_PIN);
-          sensorVoltage = sensorValue * (referenceVoltage / 1023.0);
-          windSpeed = (sensorVoltage / referenceVoltage) * maxWindSpeed;
 
-          // Format and send data
-          char windSpeedData[100];
-          sprintf(windSpeedData, "%.2f;%.2f;%.2f", (float)sensorValue, sensorVoltage, windSpeed);
-          windCharacteristic.writeValue(windSpeedData);
+        #if NODE_TYPE == A_NODE
+        /* A_NODE SENDING DATA */
+
+        // wind speed
+        if (windDirectionEnabled) {
+          // Read
+          speedSensorValue = analogRead(ANEMOMETER_PIN);
+          speedSensorVoltage = speedSensorValue * (referenceVoltage / 1023.0);
+          windSpeed = (speedSensorVoltage / referenceVoltage) * maxWindSpeed;
+
+          // Send data
+          windSpeedCharacteristic.writeValue(windSpeed);
+          Serial.print("Wind speed: ");
           Serial.println(windSpeedData);
+        }
+
+        // wind direction
+        if (windDirectionEnabled) {
+          windDirectionCharacteristic.writeValue(calculateWindDirection());
+          Serial.print("Wind direction: ");
+          Serial.println(windDirectionData);
+        }
+          
         #endif
 
         delay(1000 / SEND_INTERVAL);
       }
       
-      /* A_NODE SENDING DATA */
-
       Serial.println("* Disconnected from central device!");
     } 
 
