@@ -23,7 +23,7 @@ uint8_t i2c_slave_receive()
     int ret = i2c_slave_read_buffer(I2C_SLAVE_NUM, &data_received, 1, portMAX_DELAY);
     if (ret > 0)
     {
-        ESP_LOGI(i2c_TAG, "Data received: 0x%02X", data_received);
+        ESP_LOGI(i2c_TAG, "Data received: %d", data_received);
     }
     else
     {
@@ -38,7 +38,7 @@ void i2c_slave_send(uint8_t data_to_send)
     int ret = i2c_slave_write_buffer(I2C_SLAVE_NUM, &data_to_send, 1, portMAX_DELAY);
     if (ret > 0)
     {
-        ESP_LOGI(i2c_TAG, "Data sent: 0x%02X", data_to_send);
+        ESP_LOGI(i2c_TAG, "Data sent: %d", data_to_send);
     }
     else
     {
