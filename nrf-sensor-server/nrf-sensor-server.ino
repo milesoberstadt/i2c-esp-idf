@@ -72,17 +72,9 @@
   byte windDirectionValues[20];
 
   int calculateWindDirection() {
-    // digitalWrite(DE, HIGH);
-    // digitalWrite(RE, HIGH);
-    delay(10);
     if (Serial1.write(O2, sizeof(O2)) == 8) {
-      // digitalWrite(DE, LOW);
-      // digitalWrite(RE, LOW);
       for (byte i = 0; i < 11; i++) {
-        //Serial.print(mod.read(),HEX);
-          windDirectionValues[i] = Serial1.read();
-        //Serial.print(values[i], HEX);
-        //Serial.print(" ");
+        windDirectionValues[i] = Serial1.read();
       }
     }
     return ((windDirectionValues[5]*256)+windDirectionValues[6]);
@@ -115,7 +107,7 @@ void setup() {
   #if NODE_TYPE == A_NODE
 
     // Init wind direction sensor
-    Serial1.begin(9600);
+    Serial1.begin(4800);
 
     if (Serial1.available() > 0) {
       Serial.println("Wind direction sensor OK!");
