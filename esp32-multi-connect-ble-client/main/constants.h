@@ -2,22 +2,23 @@
 #define __CONSTANTS_H__
 
 /* Maximum connected devices count */
-#define MAX_DEVICES 4
+#define MAX_DEVICES 8
 
 /* BLE configuration */
 #define PAIRING_DURATION 30 // seconds
 
 // led pins start from here
-#define LED_PIN GPIO_NUM_4
+#define LED_PIN GPIO_NUM_10
 // to LED_PIN + MAX_DEVICES
 
 // enable led state logging
 #define LOG_LED 1
 
 /* Buttons */
-#define PAIR_BUTTON_PIN GPIO_NUM_1
-#define SELECT_BUTTON_PIN GPIO_NUM_2
-#define SCREEN_BUTTON_PIN GPIO_NUM_15
+#define PAIR_BUTTON_PIN GPIO_NUM_3
+#define SELECT_PREVIOUS_BUTTON_PIN GPIO_NUM_2
+#define SELECT_NEXT_BUTTON_PIN GPIO_NUM_4
+#define SCREEN_BUTTON_PIN GPIO_NUM_1
 #define BUTTON_DEBOUNCE_TIME 50 // ms
 
 /* Display */

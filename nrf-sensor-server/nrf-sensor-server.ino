@@ -31,8 +31,8 @@
 /* --- BUTTON --- */
 
 // if button is disabled, the nRF will always advertise when not connected
-#define USE_BUTTON 0
-#define BUTTON_PIN 0
+#define USE_BUTTON 1
+#define BUTTON_PIN 8
 
 /* --- ANEMOMETER SENSOR PIN --- */
 

@@ -12,6 +12,6 @@
 
 bool i2c_master_init();
 bool i2c_master_write_slave(uint8_t *data_wr, size_t len, uint8_t addr);
-bool i2c_master_read_slave(uint8_t addr);
+bool i2c_master_read_slave(uint8_t addr, uint8_t *data_received);
 
 #endif // __I2C_MASTER_H__
