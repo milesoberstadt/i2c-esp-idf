@@ -3,7 +3,10 @@
 #include "Wire.h"
 #include <stdio.h>
 
+/* --- * Definitions * --- */
+
 /* --- NODE TYPE --- */
+
 #define M_NODE 1
 #define A_NODE 2
 
@@ -22,7 +25,6 @@
 #define WIND_SPEED_UUID "e2238e3b-702c-406f-bd63-b3e977307e1e"
 #define WIND_DIRECTION_UUID "fbf9ad3a-cef4-41d9-a08b-06f8424a1fb0"
 
-
 /* --- TIME & DURATIONS --- */
 
 #define DISCOVERY_INTERVAL 1000 // Ms
@@ -32,19 +34,25 @@
 /* --- BUTTON --- */
 
 // if button is disabled, the nRF will always advertise when not connected
-#define USE_BUTTON 0
+#define USE_BUTTON 1
 #define BUTTON_PIN 0
 
-/* --- ANEMOMETER SENSOR PIN --- */
-
-#define ANEMOMETER_PIN 1
-
-/* --- LED --- */
+/* --- PINS --- */
 
 #define LED_PIN LED_BUILTIN
 
-/* --- Program start --- */
+/* --- A-Node config --- */
 
+#define ANEMOMETER_PIN 1 // for A-Node only
+#define REFERENCE_VOLTAGE 5.0 // (V)
+#define MAX_WIND_SPEED 30.0 // (m/s)
+
+
+/* --- * Declarations * --- */
+
+bool isAdvertising = false;
+
+/* For M-Node */
 #if NODE_TYPE == M_NODE
   BLEService dataService(M_NODE_SERVICE_UUID); 
   BLECharacteristic gyroCharacteristic(GYRO_UUID, BLERead | BLENotify, 100);
@@ -53,6 +61,7 @@
   LSM6DS3 myIMU(I2C_MODE, 0x6A);    // I2C device address 0x6A
 #endif
 
+/* For A-Node */
 #if NODE_TYPE == A_NODE
   BLEService dataService(A_NODE_SERVICE_UUID);
 
@@ -62,14 +71,13 @@
   int speedSensorValue = 0;
   float speedSensorVoltage = 0;
   float windSpeed = 0;
-  const float referenceVoltage = 5.0;  // (0-5V)
-  const float maxWindSpeed = 30.0;     // (0-30 m/s)
 
   bool windSpeedEnabled = false;
   bool windDirectionEnabled = false;
 
   const byte O2[] = {0x01 ,0x03 ,0x00 ,0x00 ,0x00 ,0x02 ,0xC4 ,0x0B};
   byte windDirectionValues[20];
+  int windDirection = 0;
 
   int calculateWindDirection() {
     if (Serial1.write(O2, sizeof(O2)) == 8) {
@@ -82,16 +90,18 @@
 
 #endif
 
-bool isAdvertising = false;
+
+/* --- * Setup & Loop * --- */
 
 void setup() {
+
   pinMode(LED_PIN, OUTPUT);
   #if USE_BUTTON
     pinMode(BUTTON_PIN, INPUT_PULLUP);  // Initialize the button pin
   #endif
 
   Serial.begin(9600);
-
+  
   /* M_NODE SETUP */
   #if NODE_TYPE == M_NODE
     if (myIMU.begin() != 0) {
@@ -101,6 +111,9 @@ void setup() {
     }
     dataService.addCharacteristic(gyroCharacteristic);
     dataService.addCharacteristic(accelCharacterictic);
+
+    Serial.println("XIAO BLE Sense (M-Node)");
+    BLE.setLocalName("XIAO BLE Sense (M-Node)");
   #endif
 
   /* A_NODE SETUP */
@@ -126,6 +139,10 @@ void setup() {
       windSpeedEnabled = true;
       dataService.addCharacteristic(windSpeedCharacteristic);
     }
+
+    Serial.println("XIAO BLE Sense (A-Node)");
+    BLE.setLocalName("XIAO BLE Sense (A-Node)");
+
   #endif
   
   if (!BLE.begin()) {
@@ -133,12 +150,13 @@ void setup() {
     while (1);
   }
 
-  BLE.setLocalName("XIAO BLE Sense (Peripheral)");
   BLE.setAdvertisedService(dataService);
   BLE.addService(dataService);
+
+  setup_battery();
+
   BLE.poll();
 
-  Serial.println("XIAO BLE Sense (Peripheral)");
   Serial.println(" ");
 }
 
@@ -181,23 +199,26 @@ void loop() {
         if (windDirectionEnabled) {
           // Read
           speedSensorValue = analogRead(ANEMOMETER_PIN);
-          speedSensorVoltage = speedSensorValue * (referenceVoltage / 1023.0);
-          windSpeed = (speedSensorVoltage / referenceVoltage) * maxWindSpeed;
+          speedSensorVoltage = speedSensorValue * (REFERENCE_VOLTAGE / 1023.0);
+          windSpeed = (speedSensorVoltage / REFERENCE_VOLTAGE) * MAX_WIND_SPEED;
 
           // Send data
           windSpeedCharacteristic.writeValue(windSpeed);
           Serial.print("Wind speed: ");
-          Serial.println(windSpeedData);
+          Serial.println(windSpeed);
         }
 
         // wind direction
         if (windDirectionEnabled) {
-          windDirectionCharacteristic.writeValue(calculateWindDirection());
+          windDirection = calculateWindDirection();
+          windDirectionCharacteristic.writeValue(windDirection);
           Serial.print("Wind direction: ");
-          Serial.println(windDirectionData);
+          Serial.println(windDirection);
         }
           
         #endif
+
+        loop_battery();
 
         delay(1000 / SEND_INTERVAL);
       }
