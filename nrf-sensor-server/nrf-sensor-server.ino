@@ -6,6 +6,7 @@
 /* --- NODE TYPE --- */
 #define M_NODE 1
 #define A_NODE 2
+#define S_NODE 3
 
 /* Change this value to compile a node */
 #define NODE_TYPE A_NODE
@@ -20,6 +21,10 @@
 // A-Node
 #define A_NODE_SERVICE_UUID "0c7e1964-3616-4132-bbab-86afff1d9654"
 #define WIND_UUID "e2238e3b-702c-406f-bd63-b3e977307e1e"
+
+// S-Node
+#define S_NODE_SERVICE_UUID "63e4eb54-b0bc-4374-8d2a-5f08f951230a"
+#define SLEEP_UUID "2c41ce1f-acd3-4088-8394-b21a88e88142"
 
 
 /* --- TIME & DURATIONS --- */
@@ -42,6 +47,10 @@
 
 #define LED_PIN LED_BUILTIN
 
+/* --- SLEEP PIN --- */
+
+#define SLEEP_PIN D0
+
 /* --- Program start --- */
 
 #if NODE_TYPE == M_NODE
@@ -62,12 +71,24 @@
   const float maxWindSpeed = 30.0;     // (0-30 m/s)
 #endif
 
+#if NODE_TYPE == S_NODE
+  BLEService dataService(S_NODE_SERVICE_UUID);
+  BLECharacteristic sleepCharacteristic(SLEEP_UUID, BLEWrite | BLENotify, 100);
+#endif
+
 bool isAdvertising = false;
 
 void setup() {
   pinMode(LED_PIN, OUTPUT);
   #if USE_BUTTON
     pinMode(BUTTON_PIN, INPUT_PULLUP);  // Initialize the button pin
+  #endif
+
+  /* S_NODE SETUP */
+  #if NODE_TYPE == S_NODE
+    pinMode(SLEEP_PIN, OUTPUT);
+    dataService.addCharacteristic(sleepCharacteristic);
+    digitalWrite(SLEEP_PIN, HIGH); // By default send wake-up signal
   #endif
 
   Serial.begin(9600);
@@ -140,6 +161,8 @@ void loop() {
           Serial.println(accelerometer);
         #endif
 
+        /* A_NODE SENDING DATA */
+
         #if NODE_TYPE == A_NODE
           // Read
           sensorValue = analogRead(ANEMOMETER_PIN);
@@ -153,10 +176,25 @@ void loop() {
           Serial.println(windSpeedData);
         #endif
 
+        /* S_NODE READING DATA */
+
+        #if NODE_TYPE == S_NODE
+          if (sleepCharacteristic.valueUpdated()) {
+            byte sleep_value;
+            sleepCharacteristic.readValue(sleep_value);
+
+            if (sleep_value & 0x01) {
+              // Sleep
+              digitalWrite(SLEEP_PIN, LOW);
+            } else if (sleep_value & 0x02) {
+              // Wake-up
+              digitalWrite(SLEEP_PIN, HIGH);
+            }
+          }
+        #endif
+
         delay(1000 / SEND_INTERVAL);
       }
-      
-      /* A_NODE SENDING DATA */
 
       Serial.println("* Disconnected from central device!");
     } 
