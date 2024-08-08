@@ -1,9 +1,6 @@
 #if !defined(__TYPES__)
 #define __TYPES__
 
-#include <stdint.h>
-
-#define DEVICE_TYPE_COUNT 3
 #define DEVICE_COUNT 6
 
 // Give a unique ID to each device type
@@ -15,23 +12,25 @@ typedef enum device_type_t {
 } device_type_t;
 
 typedef enum device_state_t {
-    error = -1,
-    disconnected = 0,
-    connected = 1,
-    pairing = 2,
-    disconnecting = 3,
-    connecting = 4,
+    dev_state_error = -1,
+    dev_state_disconnected = 0,
+    dev_state_connected = 1,
+    dev_state_pairing = 2,
+    dev_state_disconnecting = 3,
+    dev_state_connecting = 4,
 } device_state_t;
 
 typedef enum message_t {
-    error_message = -1,
-    no_message = 0,
-    pairing_message = 1,
-    connected_message = 2,
-    disconnected_message = 3,
-    disconnecting_message = 4,
-    connecting_message = 5,
-    data_message = 6,
+    msg_err = 0,
+    msg_init_start = 1,
+    msg_init_end = 2,
+    msg_dev_selected = 3,
+    msg_dev_type = 10,
+    msg_dev_state = 11,
+    msg_dev_data = 12,
+    msg_dev_error = 14,
+    msg_screen_on = 50,
+    msg_screen_off = 51,
 } message_t;
 
 typedef struct device_t {
@@ -40,5 +39,6 @@ typedef struct device_t {
     uint8_t* value;
     uint8_t value_size;
 } device_t;
+
 
 #endif // __TYPES__

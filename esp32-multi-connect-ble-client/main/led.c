@@ -24,12 +24,21 @@ void led_blink_task(void *pvParameter)
                 gpio_set_level(LED_PIN + led_id, 0);
                 vTaskDelay(blink_rates[led_id] / portTICK_PERIOD_MS);
 
-                // Check if the led_blinking state has changed or blink count reached
-                if (xSemaphoreTake(xSemaphore[led_id], 0) == pdTRUE || (blink_counters[led_id] > 0 && --blink_counters[led_id] == 0))
+                if (blink_counters[led_id] < 0)
                 {
-                    // set led to his state before blinking
-                    gpio_set_level(LED_PIN + led_id, led_states[led_id]);
-                    break;
+                    continue;
+                }
+
+                // decrease the led_blinking state if blink count reached
+                if (--blink_counters[led_id] == 0)
+                {
+                    led_blinking[led_id]--;
+
+                    if (led_blinking[led_id] == 0)
+                    {
+                        gpio_set_level(LED_PIN + led_id, led_states[led_id]);
+                        break;
+                    }
                 }
             }
         }
@@ -148,4 +157,18 @@ void stop_led_blink(int led_id)
         }
     #endif
     xSemaphoreGiveFromISR(xSemaphore[led_id], NULL);
+}
+
+void reset_led(int led_id)
+{
+    if (led_id < 0 || led_id >= MAX_DEVICES)
+    {
+        ESP_LOGE(LED_TAG, "Invalid LED ID: %d", led_id);
+        return;
+    }
+
+    led_blinking[led_id] = 0;
+    blink_counters[led_id] = 0;
+    blink_rates[led_id] = 0;
+    set_led(led_id, false);
 }

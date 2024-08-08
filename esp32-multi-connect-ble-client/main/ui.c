@@ -1,15 +1,24 @@
 #include "ui.h"
 
 size_t selected_device = 0;
+bool is_screen_on = false;
 
 size_t get_selected_device() {
     return selected_device;
 }
 
-void switch_selected_device() {
+bool get_is_screen_on() {
+    return is_screen_on;
+}
+
+void next_selected_device() {
     selected_device = (selected_device + 1) % MAX_DEVICES;
-    start_led_blink(selected_device, 1, 100);
-    ESP_LOGI(UI_TAG, "Selected device: %d", selected_device);
+    on_device_selected(selected_device);
+}
+
+void previous_selected_device() {
+    selected_device = (selected_device - 1) % MAX_DEVICES;
+    on_device_selected(selected_device);
 }
 
 void start_pairing() {
@@ -34,6 +43,11 @@ void reconnect_device() {
     connect_device(selected_device);
 }
 
+void toggle_screen() {
+    is_screen_on = !is_screen_on;
+    on_screen_state_changed(is_screen_on);
+}
+
 bool init_ui() {
 
     bool ret = init_led();
@@ -41,6 +55,8 @@ bool init_ui() {
         ESP_LOGE(UI_TAG, "Failed to initialize LED");
         return false;
     }
+
+    // PAIR BUTTON
 
     ESP_LOGI(UI_TAG, "Initializing pair button");
     button_config_t pair_button_config = {
@@ -51,23 +67,55 @@ bool init_ui() {
 
     ret = init_button(&pair_button_config);
     if (!ret) {
-        ESP_LOGE(UI_TAG, "Failed to initialize button");
+        ESP_LOGE(UI_TAG, "Failed to initialize pair button");
         return false;
     }
     ESP_LOGI(UI_TAG, "Pair button initialized");
 
-    ESP_LOGI(UI_TAG, "Initializing select button");
-    button_config_t select_button_config = {
-        .gpio_num = SELECT_BUTTON_PIN,
-        .press_callback = switch_selected_device,
+    // NEXT BUTTON
+
+    ESP_LOGI(UI_TAG, "Initializing next button");
+    button_config_t next_button_config = {
+        .gpio_num = SELECT_NEXT_BUTTON_PIN,
+        .press_callback = next_selected_device,
     };
-    ret = init_button(&select_button_config);
+    ret = init_button(&next_button_config);
     if (!ret) {
-        ESP_LOGE(UI_TAG, "Failed to initialize button");
+        ESP_LOGE(UI_TAG, "Failed to initialize next button");
         return false;
     }
+    ESP_LOGI(UI_TAG, "next button initialized");
 
+    // PREVIOUS BUTTON
+
+    ESP_LOGI(UI_TAG, "Initializing previous button");
+    button_config_t previous_button_config = {
+        .gpio_num = SELECT_PREVIOUS_BUTTON_PIN,
+        .press_callback = previous_selected_device,
+    };
+    ret = init_button(&previous_button_config);
+    if (!ret) {
+        ESP_LOGE(UI_TAG, "Failed to initialize select button");
+        return false;
+    }
     ESP_LOGI(UI_TAG, "Select button initialized");
+
+    // SCREEN BUTTON
+
+    ESP_LOGI(UI_TAG, "Initializing screen button");
+    button_config_t screen_button_config = {
+        .gpio_num = SCREEN_BUTTON_PIN,
+        .press_callback = toggle_screen,
+        .long_press_callback = NULL
+    };
+
+    ret = init_button(&screen_button_config);
+    if (!ret) {
+        ESP_LOGE(UI_TAG, "Failed to initialize screen button");
+        return false;
+    }
+    ESP_LOGI(UI_TAG, "Screen button initialized");
+
 
     return true;
     

@@ -29,6 +29,7 @@
 #define WIND_SPEED_UUID "e2238e3b-702c-406f-bd63-b3e977307e1e"
 #define WIND_DIRECTION_UUID "fbf9ad3a-cef4-41d9-a08b-06f8424a1fb0"
 
+
 // S-Node
 #define S_NODE_SERVICE_UUID "63e4eb54-b0bc-4374-8d2a-5f08f951230a"
 #define SLEEP_UUID "2c41ce1f-acd3-4088-8394-b21a88e88142"
@@ -58,11 +59,12 @@ int shouldScan = 0;
 
 /* For M-Node */
 #if NODE_TYPE == M_NODE
-BLEService dataService(M_NODE_SERVICE_UUID);
-BLECharacteristic gyroCharacteristic(GYRO_UUID, BLERead | BLENotify, 100);
-BLECharacteristic accelCharacterictic(ACCEL_UUID, BLERead | BLENotify, 100);
-// Create a instance of class LSM6DS3
-LSM6DS3 myIMU(I2C_MODE, 0x6A);  // I2C device address 0x6A
+  #define MNODE_BUFFER_SIZE 30
+  BLEService dataService(M_NODE_SERVICE_UUID); 
+  BLECharacteristic gyroCharacteristic(GYRO_UUID, BLERead | BLENotify, MNODE_BUFFER_SIZE);
+  BLECharacteristic accelCharacterictic(ACCEL_UUID, BLERead | BLENotify, MNODE_BUFFER_SIZE);
+  // Create a instance of class LSM6DS3
+  LSM6DS3 myIMU(I2C_MODE, 0x6A);    // I2C device address 0x6A
 #endif
 
 /* For A-Node */
@@ -207,8 +209,8 @@ void anode_setup() {
 
   setup_wind();
 
-  dataService.addCharacteristic(windDirectionCharacteristic);
   dataService.addCharacteristic(windSpeedCharacteristic);
+  dataService.addCharacteristic(windDirectionCharacteristic);
 
   Serial.println("XIAO BLE Sense (A-Node)");
   BLE.setLocalName("XIAO BLE Sense (A-Node)");
@@ -258,13 +260,13 @@ void mnode_setup() {
 
 void mnode_loop() {
 
-  char gyro[50];
-  sprintf(gyro, "%.2f;%.2f;%.2f", myIMU.readFloatGyroX(), myIMU.readFloatGyroY(), myIMU.readFloatGyroZ());
+  char gyro[MNODE_BUFFER_SIZE] = {0};
+  sprintf(gyro, "%.2f;%.2f;%.2f\0", myIMU.readFloatGyroX(), myIMU.readFloatGyroY(), myIMU.readFloatGyroZ());
   gyroCharacteristic.writeValue(gyro);
   Serial.println(gyro);
 
-  char accelerometer[50];
-  sprintf(accelerometer, "%.2f;%.2f;%.2f", myIMU.readFloatAccelX(), myIMU.readFloatAccelY(), myIMU.readFloatAccelZ());
+  char accelerometer[MNODE_BUFFER_SIZE] = {0};
+  sprintf(accelerometer, "%.2f;%.2f;%.2f\0", myIMU.readFloatAccelX(), myIMU.readFloatAccelY(), myIMU.readFloatAccelZ());
   accelCharacterictic.writeValue(accelerometer);
   Serial.println(accelerometer);
 }

@@ -51,6 +51,28 @@ typedef struct {
     data_callback_t data_callback;
 } gattc_profile_inst;
 
+typedef enum device_state_t {
+    dev_state_error = -1,
+    dev_state_disconnected = 0,
+    dev_state_connected = 1,
+    dev_state_pairing = 2,
+    dev_state_disconnecting = 3,
+    dev_state_connecting = 4,
+} device_state_t;
+
+typedef enum message_t {
+    msg_err = 0,
+    msg_init_start = 1,
+    msg_init_end = 2,
+    msg_dev_selected = 3,
+    msg_dev_type = 10,
+    msg_dev_state = 11,
+    msg_dev_data = 12,
+    msg_dev_error = 14,
+    msg_screen_on = 50,
+    msg_screen_off = 51,
+} message_t;
+
 typedef enum preference_t {
   PT_I8,
   PT_U8,
