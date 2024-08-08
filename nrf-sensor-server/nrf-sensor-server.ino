@@ -5,7 +5,7 @@
 #define S_NODE 3
 
 /* Change this value to compile a node */
-#define NODE_TYPE A_NODE
+#define NODE_TYPE M_NODE
 
 
 /* --- * Libraries * --- */
@@ -250,14 +250,16 @@ void mnode_setup() {
   BLE.setLocalName("XIAO BLE Sense (M-Node)");
 }
 
+#define MNODE_BUFFER_SIZE 25
+
 void mnode_loop() {
 
-  char gyro[50];
+  char gyro[MNODE_BUFFER_SIZE] = {0};
   sprintf(gyro, "%.2f;%.2f;%.2f", myIMU.readFloatGyroX(), myIMU.readFloatGyroY(), myIMU.readFloatGyroZ());
   gyroCharacteristic.writeValue(gyro);
   Serial.println(gyro);
 
-  char accelerometer[50];
+  char accelerometer[MNODE_BUFFER_SIZE] = {0};
   sprintf(accelerometer, "%.2f;%.2f;%.2f", myIMU.readFloatAccelX(), myIMU.readFloatAccelY(), myIMU.readFloatAccelZ());
   accelCharacterictic.writeValue(accelerometer);
   Serial.println(accelerometer);
