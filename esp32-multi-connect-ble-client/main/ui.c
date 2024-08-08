@@ -1,7 +1,7 @@
 #include "ui.h"
 
 size_t selected_device = 0;
-bool is_screen_on = true;
+bool is_screen_on = false;
 
 size_t get_selected_device() {
     return selected_device;
