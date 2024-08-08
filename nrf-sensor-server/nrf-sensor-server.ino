@@ -59,9 +59,10 @@ int shouldScan = 0;
 
 /* For M-Node */
 #if NODE_TYPE == M_NODE
+  #define MNODE_BUFFER_SIZE 30
   BLEService dataService(M_NODE_SERVICE_UUID); 
-  BLECharacteristic gyroCharacteristic(GYRO_UUID, BLERead | BLENotify, 100);
-  BLECharacteristic accelCharacterictic(ACCEL_UUID, BLERead | BLENotify, 100);
+  BLECharacteristic gyroCharacteristic(GYRO_UUID, BLERead | BLENotify, MNODE_BUFFER_SIZE);
+  BLECharacteristic accelCharacterictic(ACCEL_UUID, BLERead | BLENotify, MNODE_BUFFER_SIZE);
   // Create a instance of class LSM6DS3
   LSM6DS3 myIMU(I2C_MODE, 0x6A);    // I2C device address 0x6A
 #endif
@@ -250,8 +251,6 @@ void mnode_setup() {
   Serial.println("XIAO BLE Sense (M-Node)");
   BLE.setLocalName("XIAO BLE Sense (M-Node)");
 }
-
-#define MNODE_BUFFER_SIZE 25
 
 void mnode_loop() {
 
