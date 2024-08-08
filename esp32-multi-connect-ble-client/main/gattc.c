@@ -84,6 +84,7 @@ void disconnect(size_t idx) {
     free(profiles[idx].char_handles);
     profiles[idx].connected = false;
     profiles[idx].discovered = false;
+    profiles[idx].subscribe_count = 0;
     profiles[idx].device_type = UNKNOWN_DEVICE;
     profiles[idx].data_callback = NULL;
 
@@ -93,7 +94,20 @@ void disconnect(size_t idx) {
 
 }
 
-void connection_success_handler(size_t idx) {
+void subscription_success_handler(size_t idx) {
+
+    if (!is_profile_active(idx)) {
+        ESP_LOGE(GATTC_TAG, "Trying to handle connection success for profile at idx %d, but profile is not active", idx);
+        return;
+    }
+
+    profiles[idx].subscribe_count++;
+
+    device_type_config_t device_config = get_device_config(profiles[idx].device_type);
+
+    if (profiles[idx].subscribe_count != device_config.char_count) {
+        return;
+    }
     
     on_device_state_changed(idx, dev_state_connected);
 
@@ -198,6 +212,7 @@ size_t discover_characteristics(size_t idx, size_t count) {
 
         } else {
             ESP_LOGE(DEVICE_TAG, "no char property has notify");
+            continue;
         }
 
     }
@@ -261,6 +276,7 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
         if (param->cfg_mtu.status != ESP_GATT_OK){
             ESP_LOGE(DEVICE_TAG,"Config mtu failed");
             disconnect(idx);
+            return;
         }
 
         ESP_LOGI(DEVICE_TAG, "mut set : Status %d, MTU %d, conn_id %d", param->cfg_mtu.status, param->cfg_mtu.mtu, param->cfg_mtu.conn_id);
@@ -274,6 +290,8 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
         
         if (ret){
             ESP_LOGE(DEVICE_TAG, "search service failed, error status = %x", ret);
+            disconnect(idx);
+            return;
         }
 
         break;
@@ -315,8 +333,8 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
             ESP_LOGI(DEVICE_TAG, "Discovering characteristics ...");
             size_t found_char = discover_characteristics(idx, count);
 
-            if (found_char == 0) {
-                ESP_LOGE(DEVICE_TAG, "0 char found, disconnecting...");
+            if (found_char < device_config.char_count) {
+                ESP_LOGE(DEVICE_TAG, "Only %d out of %d char were found, disconnecting...", found_char, device_config.char_count);
                 disconnect(idx);
                 break;
             }
@@ -389,7 +407,7 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
         ESP_LOGI(DEVICE_TAG, "write descr success");
 
         // this was the last step of the connection process !
-        connection_success_handler(idx);
+        subscription_success_handler(idx);
 
         break;
     case ESP_GATTC_NOTIFY_EVT:

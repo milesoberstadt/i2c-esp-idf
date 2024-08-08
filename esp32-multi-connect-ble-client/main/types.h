@@ -47,6 +47,7 @@ typedef struct {
     size_t device_type;
     bool connected;
     bool discovered;
+    uint8_t subscribe_count;
     uint16_t *char_handles;
     data_callback_t data_callback;
 } gattc_profile_inst;
