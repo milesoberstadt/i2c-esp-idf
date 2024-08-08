@@ -49,12 +49,17 @@ static const esp_bt_uuid_t UUID_A_NODE = {
     .uuid.uuid128 = { 0x54, 0x96, 0x1d, 0xff, 0xaf, 0x86, 0xab, 0xbb, 0x32, 0x41, 0x16, 0x36, 0x64, 0x19, 0x7e, 0x0c }
 };
 
-static const esp_bt_uuid_t UUID_WIND_CHAR = {
+static const esp_bt_uuid_t UUID_WIND_SPEED_CHAR = {
     .len = ESP_UUID_LEN_128,
     .uuid.uuid128 = { 0x1e, 0x7e, 0x30, 0x77, 0xe9, 0xb3, 0x63, 0xbd, 0x6f, 0x40, 0x2c, 0x70, 0x3b, 0x8e, 0x23, 0xe2 }
 };
 
-static esp_bt_uuid_t A_NODE_CHAR_UUIDS[] = { UUID_WIND_CHAR };
+static const esp_bt_uuid_t UUID_WIND_DIRECTION_CHAR = {
+    .len = ESP_UUID_LEN_128,
+    .uuid.uuid128 = { 0x0b, 0x4f, 0x24, 0x42, 0xf8, 0x06, 0x8b, 0xa0, 0xd9, 0x41, 0xf4, 0xce, 0x3a, 0xad, 0xf9, 0xfb }
+};
+
+static esp_bt_uuid_t A_NODE_CHAR_UUIDS[] = { UUID_WIND_SPEED_CHAR, UUID_WIND_DIRECTION_CHAR };
 
 /* Device configurations */
 
@@ -68,7 +73,7 @@ static const device_type_config_t M_NODE_CONFIG = {
 static const device_type_config_t A_NODE_CONFIG = {
         .service_uuid = UUID_A_NODE,
         .char_uuids = A_NODE_CHAR_UUIDS,
-        .char_count = 1,
+        .char_count = 2,
         .data_callback = a_node_cb,
     };
 
