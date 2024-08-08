@@ -255,12 +255,12 @@ void mnode_setup() {
 void mnode_loop() {
 
   char gyro[MNODE_BUFFER_SIZE] = {0};
-  sprintf(gyro, "%.2f;%.2f;%.2f", myIMU.readFloatGyroX(), myIMU.readFloatGyroY(), myIMU.readFloatGyroZ());
+  sprintf(gyro, "%.2f;%.2f;%.2f\0", myIMU.readFloatGyroX(), myIMU.readFloatGyroY(), myIMU.readFloatGyroZ());
   gyroCharacteristic.writeValue(gyro);
   Serial.println(gyro);
 
   char accelerometer[MNODE_BUFFER_SIZE] = {0};
-  sprintf(accelerometer, "%.2f;%.2f;%.2f", myIMU.readFloatAccelX(), myIMU.readFloatAccelY(), myIMU.readFloatAccelZ());
+  sprintf(accelerometer, "%.2f;%.2f;%.2f\0", myIMU.readFloatAccelX(), myIMU.readFloatAccelY(), myIMU.readFloatAccelZ());
   accelCharacterictic.writeValue(accelerometer);
   Serial.println(accelerometer);
 }
