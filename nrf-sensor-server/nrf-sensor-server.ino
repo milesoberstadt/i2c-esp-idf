@@ -11,7 +11,7 @@
 /* --- * Libraries * --- */
 #include <ArduinoBLE.h>
 #if NODE_TYPE == M_NODE
-  #include <LSM6DS3.h>
+#include <LSM6DS3.h>
 #endif
 
 
@@ -37,9 +37,9 @@
 
 /* --- TIME & DURATIONS --- */
 
-#define DISCOVERY_INTERVAL 1000 // Ms
-#define DISCOVERY_DURATION 30 //seconds
-#define SEND_INTERVAL 10 // Hz
+#define DISCOVERY_INTERVAL 1000  // Ms
+#define DISCOVERY_DURATION 30    //seconds
+#define SEND_INTERVAL 10         // Hz
 
 // Button
 #define USE_BUTTON 1
@@ -69,44 +69,45 @@ int shouldScan = 0;
 
 /* For A-Node */
 #if NODE_TYPE == A_NODE
-  BLEService dataService(A_NODE_SERVICE_UUID);
-  BLEFloatCharacteristic windSpeedCharacteristic(WIND_SPEED_UUID, BLERead | BLENotify);
-  BLEUnsignedIntCharacteristic windDirectionCharacteristic(WIND_DIRECTION_UUID, BLERead | BLENotify); 
+BLEService dataService(A_NODE_SERVICE_UUID);
+BLEFloatCharacteristic windSpeedCharacteristic(WIND_SPEED_UUID, BLERead | BLENotify);
+BLEUnsignedIntCharacteristic windDirectionCharacteristic(WIND_DIRECTION_UUID, BLERead | BLENotify);
 #endif
 
 #if NODE_TYPE == S_NODE
-  BLEService dataService(S_NODE_SERVICE_UUID);
-  BLECharacteristic sleepCharacteristic(SLEEP_UUID, BLEWrite | BLENotify, 100);
+BLEService dataService(S_NODE_SERVICE_UUID);
+BLEBooleanCharacteristic sleepCharacteristic(SLEEP_UUID, BLEWrite | BLENotify, 100);
 #endif
 
 void setup() {
-
+  //NRF_POWER->DCDCEN = 1;
   pinMode(LED_PIN, OUTPUT);
-  #if USE_BUTTON
-    pinMode(BUTTON_PIN, INPUT_PULLUP);  // Initialize the button pin
-  #endif
+#if USE_BUTTON
+  pinMode(BUTTON_PIN, INPUT_PULLUP);  // Initialize the button pin
+#endif
 
   Serial.begin(BAUDRATE);
-  
-  /* S_NODE SETUP */
-  #if NODE_TYPE == S_NODE
-    snode_setup();
-  #endif
 
-  /* M_NODE SETUP */
-  #if NODE_TYPE == M_NODE
-    mnode_setup();
-  #endif
+/* S_NODE SETUP */
+#if NODE_TYPE == S_NODE
+  snode_setup();
+#endif
 
-  /* A_NODE SETUP */
-  #if NODE_TYPE == A_NODE
-    anode_setup();
-  #endif
-  
+/* M_NODE SETUP */
+#if NODE_TYPE == M_NODE
+  mnode_setup();
+#endif
+
+/* A_NODE SETUP */
+#if NODE_TYPE == A_NODE
+  anode_setup();
+#endif
+
   /* BLE SETUP */
   if (!BLE.begin()) {
     Serial.println("- Starting Bluetooth® Low Energy module failed!");
-    while (1);
+    while (1)
+      ;
   }
   BLE.setAdvertisedService(dataService);
   BLE.addService(dataService);
@@ -132,17 +133,17 @@ void loop() {
     while (central.connected()) {
       digitalWrite(LED_PIN, LOW);
 
-      #if NODE_TYPE == M_NODE
-        mnode_loop();
-      #endif
+#if NODE_TYPE == M_NODE
+      mnode_loop();
+#endif
 
-      #if NODE_TYPE == A_NODE
-        anode_loop();
-      #endif
+#if NODE_TYPE == A_NODE
+      anode_loop();
+#endif
 
-      #if NODE_TYPE == S_NODE
-        snode_loop();
-      #endif
+#if NODE_TYPE == S_NODE
+      snode_loop();
+#endif
 
       loop_battery();
 
@@ -153,26 +154,25 @@ void loop() {
   }
 
   scan_loop();
-
 }
 
 void scan_loop() {
-  #if USE_BUTTON
-    static unsigned long discoveryStartTime = 0;
-  #endif
+#if USE_BUTTON
+  static unsigned long discoveryStartTime = 0;
+#endif
 
-  #if USE_BUTTON 
-    shouldScan = discoveryStartTime > 0 && millis() - discoveryStartTime < DISCOVERY_DURATION*1000;
-  #else
-    shouldScan = 1;
-  #endif
+#if USE_BUTTON
+  shouldScan = discoveryStartTime > 0 && millis() - discoveryStartTime < DISCOVERY_DURATION * 1000;
+#else
+  shouldScan = 1;
+#endif
 
   // start scan if it should
   if (!isAdvertising && shouldScan) {
     BLE.advertise();
     isAdvertising = 1;
     Serial.println("- Starting Bluetooth discovery for 30 seconds...");
-    delay(1000); // Debounce delay
+    delay(1000);  // Debounce delay
   }
 
   // stop scan if it should
@@ -181,17 +181,17 @@ void scan_loop() {
     isAdvertising = 0;
     Serial.println("Discovery ended.");
     digitalWrite(LED_PIN, HIGH);
-    #if USE_BUTTON
-      discoveryStartTime = 0; // Reset discovery start time
-    #endif
+#if USE_BUTTON
+    discoveryStartTime = 0;  // Reset discovery start time
+#endif
   }
 
-  #if USE_BUTTON
-      // start scan on button press
-    if (!isAdvertising && digitalRead(BUTTON_PIN) == LOW) {
-      discoveryStartTime = millis();
-    }
-  #endif
+#if USE_BUTTON
+  // start scan on button press
+  if (!isAdvertising && digitalRead(BUTTON_PIN) == LOW) {
+    discoveryStartTime = millis();
+  }
+#endif
 
   // blinking led during scan
   if (isAdvertising) {
@@ -218,19 +218,22 @@ void anode_setup() {
 
 void anode_loop() {
 
+  pinMode(SLEEP_PIN, INPUT);
+  attachInterrupt(digitalPinToInterrupt(SLEEP_PIN), handleSignalChange, CHANGE);
+
   float wind_speed = get_wind_speed();
   if (wind_speed != -1) {
-      windSpeedCharacteristic.writeValue(wind_speed);
-      Serial.print("Wind speed: ");
-      Serial.print(wind_speed);
-      Serial.println(" m/s");
+    windSpeedCharacteristic.writeValue(wind_speed);
+    Serial.print("Wind speed: ");
+    Serial.print(wind_speed);
+    Serial.println(" m/s");
   }
 
   int wind_direction = get_wind_direction();
   if (wind_direction != -1) {
-      windDirectionCharacteristic.writeValue(wind_direction);
-      Serial.print("Wind direction: ");
-      Serial.println(wind_direction);
+    windDirectionCharacteristic.writeValue(wind_direction);
+    Serial.print("Wind direction: ");
+    Serial.println(wind_direction);
   }
 }
 #endif
@@ -239,10 +242,13 @@ void anode_loop() {
 void mnode_setup() {
   Serial.println("Initialising M-Node ...");
 
+  pinMode(SLEEP_PIN, INPUT);
+  attachInterrupt(digitalPinToInterrupt(SLEEP_PIN), handleSignalChange, CHANGE);
+
   if (myIMU.begin() != 0) {
-      Serial.println("IMU error");
+    Serial.println("IMU error");
   } else {
-      Serial.println("IMU OK!");
+    Serial.println("IMU OK!");
   }
 
   dataService.addCharacteristic(gyroCharacteristic);
@@ -270,21 +276,42 @@ void mnode_loop() {
 void snode_setup() {
   pinMode(SLEEP_PIN, OUTPUT);
   dataService.addCharacteristic(sleepCharacteristic);
-  digitalWrite(SLEEP_PIN, HIGH); // By default send wake-up signal
+  digitalWrite(SLEEP_PIN, HIGH);  // By default send wake-up signal
 }
 
 void snode_loop() {
   if (sleepCharacteristic.valueUpdated()) {
-    byte sleep_value;
-    sleepCharacteristic.readValue(sleep_value);
+bool sleep_value = sleepCharacteristic.value();
 
-    if (sleep_value & 0x01) {
+    if (sleep_value) {
       // Sleep
       digitalWrite(SLEEP_PIN, LOW);
-    } else if (sleep_value & 0x02) {
+    } else {
       // Wake-up
       digitalWrite(SLEEP_PIN, HIGH);
     }
   }
 }
 #endif
+
+// Fonction appelée sur interruption
+void handleSignalChange() {
+  if (digitalRead(SLEEP_PIN) == HIGH) {
+    wakeUp();
+  } else {
+    enterSleepMode();
+  }
+}
+
+
+// Fonction de réveil
+void wakeUp() {
+  bool shouldScan = true;
+}
+
+// Fonction de mise en veille
+void enterSleepMode() {
+  digitalWrite(LED_PIN, HIGH);
+  BLE.disconnect();
+  NRF_POWER->SYSTEMOFF = 1;
+}
