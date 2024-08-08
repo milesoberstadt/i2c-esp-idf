@@ -385,7 +385,7 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
 
         break;
     case ESP_GATTC_NOTIFY_EVT:
-        if (p_data->notify.is_notify && profiles[idx].data_callback) {
+        if (p_data->notify.is_notify) {
 
             size_t char_idx = get_char_idx_by_handle(idx, p_data->notify.handle);
 
@@ -399,10 +399,12 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
                                 p_data->notify.value, 
                                 p_data->notify.value_len);
 
-            profiles[idx].data_callback(idx, 
-                                        char_idx, 
-                                        p_data->notify.value, 
-                                        p_data->notify.value_len);
+            if (profiles[idx].data_callback) {
+                profiles[idx].data_callback(idx, 
+                                            char_idx, 
+                                            p_data->notify.value, 
+                                            p_data->notify.value_len);
+            }
                                         
         }
         break;
