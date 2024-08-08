@@ -2,6 +2,7 @@
 
 #define M_NODE 1
 #define A_NODE 2
+#define S_NODE 3
 
 /* Change this value to compile a node */
 #define NODE_TYPE A_NODE
@@ -28,7 +29,12 @@
 #define WIND_SPEED_UUID "e2238e3b-702c-406f-bd63-b3e977307e1e"
 #define WIND_DIRECTION_UUID "fbf9ad3a-cef4-41d9-a08b-06f8424a1fb0"
 
-// Time & durations
+// S-Node
+#define S_NODE_SERVICE_UUID "63e4eb54-b0bc-4374-8d2a-5f08f951230a"
+#define SLEEP_UUID "2c41ce1f-acd3-4088-8394-b21a88e88142"
+
+
+/* --- TIME & DURATIONS --- */
 
 #define DISCOVERY_INTERVAL 1000 // Ms
 #define DISCOVERY_DURATION 30 //seconds
@@ -42,10 +48,13 @@
 // LED
 #define LED_PIN LED_BUILTIN
 
+// Sleep pin
+#define SLEEP_PIN D0
 
 /* --- * Declarations * --- */
 
 int isAdvertising = 0;
+int shouldScan = 0;
 
 /* For M-Node */
 #if NODE_TYPE == M_NODE
@@ -63,7 +72,10 @@ int isAdvertising = 0;
   BLEUnsignedIntCharacteristic windDirectionCharacteristic(WIND_DIRECTION_UUID, BLERead | BLENotify); 
 #endif
 
-/* --- * Setup & Loop * --- */
+#if NODE_TYPE == S_NODE
+  BLEService dataService(S_NODE_SERVICE_UUID);
+  BLECharacteristic sleepCharacteristic(SLEEP_UUID, BLEWrite | BLENotify, 100);
+#endif
 
 void setup() {
 
@@ -74,43 +86,26 @@ void setup() {
 
   Serial.begin(BAUDRATE);
   
+  /* S_NODE SETUP */
+  #if NODE_TYPE == S_NODE
+    snode_setup();
+  #endif
+
   /* M_NODE SETUP */
   #if NODE_TYPE == M_NODE
-    Serial.println("Initialising M-Node ...");
-
-    if (myIMU.begin() != 0) {
-        Serial.println("IMU error");
-    } else {
-        Serial.println("IMU OK!");
-    }
-
-    dataService.addCharacteristic(gyroCharacteristic);
-    dataService.addCharacteristic(accelCharacterictic);
-
-    Serial.println("XIAO BLE Sense (M-Node)");
-    BLE.setLocalName("XIAO BLE Sense (M-Node)");
+    mnode_setup();
   #endif
 
   /* A_NODE SETUP */
   #if NODE_TYPE == A_NODE
-
-    Serial.println("Initialising A-Node ...");
-
-    setup_wind();
-
-    dataService.addCharacteristic(windDirectionCharacteristic);
-    dataService.addCharacteristic(windSpeedCharacteristic);
-
-    Serial.println("XIAO BLE Sense (A-Node)");
-    BLE.setLocalName("XIAO BLE Sense (A-Node)");
-
+    anode_setup();
   #endif
   
+  /* BLE SETUP */
   if (!BLE.begin()) {
     Serial.println("- Starting Bluetooth® Low Energy module failed!");
     while (1);
   }
-
   BLE.setAdvertisedService(dataService);
   BLE.addService(dataService);
 
@@ -127,32 +122,35 @@ void loop() {
 
   // when device is connected
   if (central) {
-      Serial.println("* Connected to central device!");
-      Serial.print("* Device MAC address: ");
-      Serial.println(central.address());
-      Serial.println(" ");
+    Serial.println("* Connected to central device!");
+    Serial.print("* Device MAC address: ");
+    Serial.println(central.address());
+    Serial.println(" ");
 
-      while (central.connected()) {
-        digitalWrite(LED_PIN, HIGH);
-
-        #if NODE_TYPE == M_NODE
-          mnode_loop();
-        #endif
-
-        #if NODE_TYPE == A_NODE
-          anode_loop();
-        #endif
-
-        loop_battery();
-
-        delay(1000 / SEND_INTERVAL);
-      }
-      
+    while (central.connected()) {
       digitalWrite(LED_PIN, LOW);
-      Serial.println("* Disconnected from central device!");
-    } 
 
-    scan_loop();
+      #if NODE_TYPE == M_NODE
+        mnode_loop();
+      #endif
+
+      #if NODE_TYPE == A_NODE
+        anode_loop();
+      #endif
+
+      #if NODE_TYPE == S_NODE
+        snode_loop();
+      #endif
+
+      loop_battery();
+
+      delay(1000 / SEND_INTERVAL);
+    }
+
+    Serial.println("* Disconnected from central device!");
+  }
+
+  scan_loop();
 
 }
 
@@ -161,17 +159,16 @@ void scan_loop() {
     static unsigned long discoveryStartTime = 0;
   #endif
 
-  bool shouldScan;
   #if USE_BUTTON 
     shouldScan = discoveryStartTime > 0 && millis() - discoveryStartTime < DISCOVERY_DURATION*1000;
   #else
-    shouldScan = true;
+    shouldScan = 1;
   #endif
 
   // start scan if it should
   if (!isAdvertising && shouldScan) {
     BLE.advertise();
-    isAdvertising = true;
+    isAdvertising = 1;
     Serial.println("- Starting Bluetooth discovery for 30 seconds...");
     delay(1000); // Debounce delay
   }
@@ -179,8 +176,9 @@ void scan_loop() {
   // stop scan if it should
   if (isAdvertising && !shouldScan) {
     BLE.stopAdvertise();
-    isAdvertising = false;
-    digitalWrite(LED_PIN, LOW);
+    isAdvertising = 0;
+    Serial.println("Discovery ended.");
+    digitalWrite(LED_PIN, HIGH);
     #if USE_BUTTON
       discoveryStartTime = 0; // Reset discovery start time
     #endif
@@ -198,10 +196,24 @@ void scan_loop() {
     int status = digitalRead(LED_PIN);
     digitalWrite(LED_PIN, !status);
     delay(DISCOVERY_INTERVAL);
+  } else {
+    digitalWrite(LED_PIN, HIGH);
   }
 }
 
 #if NODE_TYPE == A_NODE
+void anode_setup() {
+  Serial.println("Initialising A-Node ...");
+
+  setup_wind();
+
+  dataService.addCharacteristic(windDirectionCharacteristic);
+  dataService.addCharacteristic(windSpeedCharacteristic);
+
+  Serial.println("XIAO BLE Sense (A-Node)");
+  BLE.setLocalName("XIAO BLE Sense (A-Node)");
+}
+
 void anode_loop() {
 
   float wind_speed = get_wind_speed();
@@ -222,6 +234,22 @@ void anode_loop() {
 #endif
 
 #if NODE_TYPE == M_NODE
+void mnode_setup() {
+  Serial.println("Initialising M-Node ...");
+
+  if (myIMU.begin() != 0) {
+      Serial.println("IMU error");
+  } else {
+      Serial.println("IMU OK!");
+  }
+
+  dataService.addCharacteristic(gyroCharacteristic);
+  dataService.addCharacteristic(accelCharacterictic);
+
+  Serial.println("XIAO BLE Sense (M-Node)");
+  BLE.setLocalName("XIAO BLE Sense (M-Node)");
+}
+
 void mnode_loop() {
 
   char gyro[50];
@@ -233,5 +261,28 @@ void mnode_loop() {
   sprintf(accelerometer, "%.2f;%.2f;%.2f", myIMU.readFloatAccelX(), myIMU.readFloatAccelY(), myIMU.readFloatAccelZ());
   accelCharacterictic.writeValue(accelerometer);
   Serial.println(accelerometer);
+}
+#endif
+
+#if NODE_TYPE == S_NODE
+void snode_setup() {
+  pinMode(SLEEP_PIN, OUTPUT);
+  dataService.addCharacteristic(sleepCharacteristic);
+  digitalWrite(SLEEP_PIN, HIGH); // By default send wake-up signal
+}
+
+void snode_loop() {
+  if (sleepCharacteristic.valueUpdated()) {
+    byte sleep_value;
+    sleepCharacteristic.readValue(sleep_value);
+
+    if (sleep_value & 0x01) {
+      // Sleep
+      digitalWrite(SLEEP_PIN, LOW);
+    } else if (sleep_value & 0x02) {
+      // Wake-up
+      digitalWrite(SLEEP_PIN, HIGH);
+    }
+  }
 }
 #endif
