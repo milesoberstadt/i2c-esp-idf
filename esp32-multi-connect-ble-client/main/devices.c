@@ -167,7 +167,6 @@ void connect_device(size_t idx) {
     bool ret = get_device(idx, &dev);
 
     if (!ret) {
-        ESP_LOGE(DEVICES_TAG, "Error reading device idx %d", idx);
         return;
     }
 
@@ -196,7 +195,6 @@ bool update_device_bda(size_t idx, esp_bd_addr_t bda) {
         device_t dev;
         bool ret = get_device(idx, &dev);
         if (!ret) {
-            ESP_LOGE(DEVICES_TAG, "Error reading device idx %d", idx);
             return false;
         }
     

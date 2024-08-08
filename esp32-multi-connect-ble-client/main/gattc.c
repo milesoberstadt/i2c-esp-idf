@@ -8,6 +8,9 @@ static esp_bt_uuid_t notify_descr_uuid = {
 };
 
 bool is_profile_active(size_t idx) {
+    if (idx >= MAX_DEVICES) {
+        return false;
+    }
     return profiles[idx].gattc_if != ESP_GATT_IF_NONE;
 }
 
@@ -45,6 +48,11 @@ size_t get_char_idx_by_handle(size_t idx, uint16_t handle) {
 }
 
 void disconnect(size_t idx) {
+
+    if (!is_profile_active(idx)) {
+        ESP_LOGE(GATTC_TAG, "Trying to disconnect profile at idx %d, but profile is not active", idx);
+        return;
+    }
 
     on_device_state_changed(idx, dev_state_disconnecting);
     
@@ -442,9 +450,11 @@ void esp_gattc_cb(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_ga
             if (param->reg.status == ESP_GATT_OK) {
             profiles[param->reg.app_id].gattc_if = gattc_if;
             } else {
+
                 ESP_LOGI(GATTC_TAG, "Reg app failed, app_id %04x, status %d",
                         param->reg.app_id,
                         param->reg.status);
+                disconnect(get_idx_by_gattc_if(gattc_if));
                 return;
             }
             break;

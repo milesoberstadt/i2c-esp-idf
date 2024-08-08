@@ -29,6 +29,7 @@
 #define WIND_SPEED_UUID "e2238e3b-702c-406f-bd63-b3e977307e1e"
 #define WIND_DIRECTION_UUID "fbf9ad3a-cef4-41d9-a08b-06f8424a1fb0"
 
+
 // S-Node
 #define S_NODE_SERVICE_UUID "63e4eb54-b0bc-4374-8d2a-5f08f951230a"
 #define SLEEP_UUID "2c41ce1f-acd3-4088-8394-b21a88e88142"
@@ -207,8 +208,8 @@ void anode_setup() {
 
   setup_wind();
 
-  dataService.addCharacteristic(windDirectionCharacteristic);
   dataService.addCharacteristic(windSpeedCharacteristic);
+  dataService.addCharacteristic(windDirectionCharacteristic);
 
   Serial.println("XIAO BLE Sense (A-Node)");
   BLE.setLocalName("XIAO BLE Sense (A-Node)");
