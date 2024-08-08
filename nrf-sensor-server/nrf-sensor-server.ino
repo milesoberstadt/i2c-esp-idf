@@ -1,10 +1,3 @@
-#include <ArduinoBLE.h>
-#include "LSM6DS3.h"
-#include "Wire.h"
-#include <stdio.h>
-
-/* --- * Definitions * --- */
-
 /* --- NODE TYPE --- */
 
 #define M_NODE 1
@@ -13,44 +6,46 @@
 /* Change this value to compile a node */
 #define NODE_TYPE A_NODE
 
-/* --- UUIDS --- */
 
-// M-Node
+/* --- * Libraries * --- */
+#include <ArduinoBLE.h>
+#if NODE_TYPE == M_NODE
+  #include <LSM6DS3.h>
+#endif
+
+
+/* --- * Definitions * --- */
+
+#define BAUDRATE 9600
+
+// M-Node UUID
 #define M_NODE_SERVICE_UUID "19b10000-e8f2-537e-4f6c-d104768a1214"
 #define GYRO_UUID "31d31ed5-aa9b-4325-b011-25caa3765c2a"
 #define ACCEL_UUID "bcd6dfbe-0c7b-4530-a5b3-ecd2ed69ff4f"
 
-// A-Node
+// A-Node UUID
 #define A_NODE_SERVICE_UUID "0c7e1964-3616-4132-bbab-86afff1d9654"
 #define WIND_SPEED_UUID "e2238e3b-702c-406f-bd63-b3e977307e1e"
 #define WIND_DIRECTION_UUID "fbf9ad3a-cef4-41d9-a08b-06f8424a1fb0"
 
-/* --- TIME & DURATIONS --- */
+// Time & durations
 
 #define DISCOVERY_INTERVAL 1000 // Ms
 #define DISCOVERY_DURATION 30 //seconds
 #define SEND_INTERVAL 10 // Hz
 
-/* --- BUTTON --- */
-
-// if button is disabled, the nRF will always advertise when not connected
+// Button
 #define USE_BUTTON 1
-#define BUTTON_PIN 0
+#define BUTTON_PIN 9
+// if button is disabled, the nRF will always advertise when not connected
 
-/* --- PINS --- */
-
+// LED
 #define LED_PIN LED_BUILTIN
-
-/* --- A-Node config --- */
-
-#define ANEMOMETER_PIN 1 // for A-Node only
-#define REFERENCE_VOLTAGE 5.0 // (V)
-#define MAX_WIND_SPEED 30.0 // (m/s)
 
 
 /* --- * Declarations * --- */
 
-bool isAdvertising = false;
+int isAdvertising = 0;
 
 /* For M-Node */
 #if NODE_TYPE == M_NODE
@@ -64,32 +59,9 @@ bool isAdvertising = false;
 /* For A-Node */
 #if NODE_TYPE == A_NODE
   BLEService dataService(A_NODE_SERVICE_UUID);
-
-  BLEUnsignedIntCharacteristic windSpeedCharacteristic(WIND_SPEED_UUID, BLERead | BLENotify);
+  BLEFloatCharacteristic windSpeedCharacteristic(WIND_SPEED_UUID, BLERead | BLENotify);
   BLEUnsignedIntCharacteristic windDirectionCharacteristic(WIND_DIRECTION_UUID, BLERead | BLENotify); 
-
-  int speedSensorValue = 0;
-  float speedSensorVoltage = 0;
-  float windSpeed = 0;
-
-  bool windSpeedEnabled = false;
-  bool windDirectionEnabled = false;
-
-  const byte O2[] = {0x01 ,0x03 ,0x00 ,0x00 ,0x00 ,0x02 ,0xC4 ,0x0B};
-  byte windDirectionValues[20];
-  int windDirection = 0;
-
-  int calculateWindDirection() {
-    if (Serial1.write(O2, sizeof(O2)) == 8) {
-      for (byte i = 0; i < 11; i++) {
-        windDirectionValues[i] = Serial1.read();
-      }
-    }
-    return ((windDirectionValues[5]*256)+windDirectionValues[6]);
-  }
-
 #endif
-
 
 /* --- * Setup & Loop * --- */
 
@@ -100,15 +72,18 @@ void setup() {
     pinMode(BUTTON_PIN, INPUT_PULLUP);  // Initialize the button pin
   #endif
 
-  Serial.begin(9600);
+  Serial.begin(BAUDRATE);
   
   /* M_NODE SETUP */
   #if NODE_TYPE == M_NODE
+    Serial.println("Initialising M-Node ...");
+
     if (myIMU.begin() != 0) {
         Serial.println("IMU error");
     } else {
         Serial.println("IMU OK!");
     }
+
     dataService.addCharacteristic(gyroCharacteristic);
     dataService.addCharacteristic(accelCharacterictic);
 
@@ -119,26 +94,12 @@ void setup() {
   /* A_NODE SETUP */
   #if NODE_TYPE == A_NODE
 
-    // Init wind direction sensor
-    Serial1.begin(4800);
+    Serial.println("Initialising A-Node ...");
 
-    if (Serial1.available() > 0) {
-      Serial.println("Wind direction sensor OK!");
-      windDirectionEnabled = true;
-      dataService.addCharacteristic(windDirectionCharacteristic);
-    } else {
-      Serial.println("Wind direction sensor error");
-    }
+    setup_wind();
 
-    // Read initial value from anemometer sensor
-    speedSensorValue = analogRead(ANEMOMETER_PIN);
-    if (speedSensorValue == 0) {
-      Serial.println("Anemometer error");
-    } else {
-      Serial.println("Anemometer OK!");    
-      windSpeedEnabled = true;
-      dataService.addCharacteristic(windSpeedCharacteristic);
-    }
+    dataService.addCharacteristic(windDirectionCharacteristic);
+    dataService.addCharacteristic(windSpeedCharacteristic);
 
     Serial.println("XIAO BLE Sense (A-Node)");
     BLE.setLocalName("XIAO BLE Sense (A-Node)");
@@ -161,9 +122,6 @@ void setup() {
 }
 
 void loop() {
-  #if USE_BUTTON
-    static unsigned long discoveryStartTime = 0;
-  #endif
 
   BLEDevice central = BLE.central();
 
@@ -175,47 +133,14 @@ void loop() {
       Serial.println(" ");
 
       while (central.connected()) {
-        digitalWrite(LED_PIN, LOW);
+        digitalWrite(LED_PIN, HIGH);
 
         #if NODE_TYPE == M_NODE
-          /* M_NODE SENDING DATA */
-
-          char gyro[100];
-          sprintf(gyro, "%.2f;%.2f;%.2f", myIMU.readFloatGyroX(), myIMU.readFloatGyroY(), myIMU.readFloatGyroZ());
-          gyroCharacteristic.writeValue(gyro);
-          Serial.println(gyro);
-
-          char accelerometer[100];
-          sprintf(accelerometer, "%.2f;%.2f;%.2f", myIMU.readFloatAccelX(), myIMU.readFloatAccelY(), myIMU.readFloatAccelZ());
-          accelCharacterictic.writeValue(accelerometer);
-          Serial.println(accelerometer);
+          mnode_loop();
         #endif
 
-
         #if NODE_TYPE == A_NODE
-        /* A_NODE SENDING DATA */
-
-        // wind speed
-        if (windDirectionEnabled) {
-          // Read
-          speedSensorValue = analogRead(ANEMOMETER_PIN);
-          speedSensorVoltage = speedSensorValue * (REFERENCE_VOLTAGE / 1023.0);
-          windSpeed = (speedSensorVoltage / REFERENCE_VOLTAGE) * MAX_WIND_SPEED;
-
-          // Send data
-          windSpeedCharacteristic.writeValue(windSpeed);
-          Serial.print("Wind speed: ");
-          Serial.println(windSpeed);
-        }
-
-        // wind direction
-        if (windDirectionEnabled) {
-          windDirection = calculateWindDirection();
-          windDirectionCharacteristic.writeValue(windDirection);
-          Serial.print("Wind direction: ");
-          Serial.println(windDirection);
-        }
-          
+          anode_loop();
         #endif
 
         loop_battery();
@@ -223,46 +148,90 @@ void loop() {
         delay(1000 / SEND_INTERVAL);
       }
       
+      digitalWrite(LED_PIN, LOW);
       Serial.println("* Disconnected from central device!");
     } 
 
-    bool shouldScan;
-    #if USE_BUTTON 
-      shouldScan = discoveryStartTime > 0 && millis() - discoveryStartTime < DISCOVERY_DURATION*1000;
-    #else
-      shouldScan = true;
-    #endif
-
-    // start scan if it should
-    if (!isAdvertising && shouldScan) {
-      BLE.advertise();
-      isAdvertising = true;
-      Serial.println("- Starting Bluetooth discovery for 30 seconds...");
-      delay(1000); // Debounce delay
-    }
-
-    // stop scan if it should
-    if (isAdvertising && !shouldScan) {
-      BLE.stopAdvertise();
-      isAdvertising = false;
-      digitalWrite(LED_BUILTIN, 0);
-      #if USE_BUTTON
-        discoveryStartTime = 0; // Reset discovery start time
-      #endif
-    }
-
-    #if USE_BUTTON
-        // start scan on button press
-      if (!isAdvertising && digitalRead(BUTTON_PIN) == LOW) {
-        discoveryStartTime = millis();
-      }
-    #endif
-
-    // blinking led during scan
-    if (isAdvertising) {
-      int status = digitalRead(LED_PIN);
-      digitalWrite(LED_PIN, !status);
-      delay(DISCOVERY_INTERVAL);
-    }
+    scan_loop();
 
 }
+
+void scan_loop() {
+  #if USE_BUTTON
+    static unsigned long discoveryStartTime = 0;
+  #endif
+
+  bool shouldScan;
+  #if USE_BUTTON 
+    shouldScan = discoveryStartTime > 0 && millis() - discoveryStartTime < DISCOVERY_DURATION*1000;
+  #else
+    shouldScan = true;
+  #endif
+
+  // start scan if it should
+  if (!isAdvertising && shouldScan) {
+    BLE.advertise();
+    isAdvertising = true;
+    Serial.println("- Starting Bluetooth discovery for 30 seconds...");
+    delay(1000); // Debounce delay
+  }
+
+  // stop scan if it should
+  if (isAdvertising && !shouldScan) {
+    BLE.stopAdvertise();
+    isAdvertising = false;
+    digitalWrite(LED_PIN, LOW);
+    #if USE_BUTTON
+      discoveryStartTime = 0; // Reset discovery start time
+    #endif
+  }
+
+  #if USE_BUTTON
+      // start scan on button press
+    if (!isAdvertising && digitalRead(BUTTON_PIN) == LOW) {
+      discoveryStartTime = millis();
+    }
+  #endif
+
+  // blinking led during scan
+  if (isAdvertising) {
+    int status = digitalRead(LED_PIN);
+    digitalWrite(LED_PIN, !status);
+    delay(DISCOVERY_INTERVAL);
+  }
+}
+
+#if NODE_TYPE == A_NODE
+void anode_loop() {
+
+  float wind_speed = get_wind_speed();
+  if (wind_speed != -1) {
+      windSpeedCharacteristic.writeValue(wind_speed);
+      Serial.print("Wind speed: ");
+      Serial.print(wind_speed);
+      Serial.println(" m/s");
+  }
+
+  int wind_direction = get_wind_direction();
+  if (wind_direction != -1) {
+      windDirectionCharacteristic.writeValue(wind_direction);
+      Serial.print("Wind direction: ");
+      Serial.println(wind_direction);
+  }
+}
+#endif
+
+#if NODE_TYPE == M_NODE
+void mnode_loop() {
+
+  char gyro[50];
+  sprintf(gyro, "%.2f;%.2f;%.2f", myIMU.readFloatGyroX(), myIMU.readFloatGyroY(), myIMU.readFloatGyroZ());
+  gyroCharacteristic.writeValue(gyro);
+  Serial.println(gyro);
+
+  char accelerometer[50];
+  sprintf(accelerometer, "%.2f;%.2f;%.2f", myIMU.readFloatAccelX(), myIMU.readFloatAccelY(), myIMU.readFloatAccelZ());
+  accelCharacterictic.writeValue(accelerometer);
+  Serial.println(accelerometer);
+}
+#endif

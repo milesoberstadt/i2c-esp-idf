@@ -3,7 +3,7 @@
 
 #define BATTERY_SEND_INTERVAL 10000 // ms
 
-#define BATTERY_PIN 2 // ADC2
+#define BATTERY_PIN 3 // ADC2
 
 BLEService batteryService(BATTERY_SERVICE_UUID);
 BLEUnsignedIntCharacteristic batteryChargeCharacteristic(BATTERY_CHARGE_UUID, BLERead | BLENotify);
