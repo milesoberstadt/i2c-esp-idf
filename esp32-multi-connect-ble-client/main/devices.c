@@ -63,13 +63,6 @@ bool add_device(esp_bd_addr_t bda, esp_ble_addr_type_t ble_addr_type, size_t dev
         return false;
     }
 
-    size_t dev_count = get_device_count();
-    ret = put_int(DEVICE_COUNT_KEY, dev_count + 1);
-    if (!ret) {
-        ESP_LOGE(DEVICES_TAG, "Error adding device idx %d (incrementing counter)", idx);
-        return false;
-    }
-
     ESP_LOGI(DEVICES_TAG, "Saved device idx %d", idx);
 
     return true;
@@ -105,20 +98,10 @@ bool remove_device(size_t idx) {
         ESP_LOGE(DEVICES_TAG, "Error removing device idx %d (device type)", idx);
     }
 
-    size_t dev_count = get_device_count();
-    size_t res = put_int(DEVICE_COUNT_KEY, dev_count - 1);
-    if (!res) {
-        ESP_LOGE(DEVICES_TAG, "Error removing device idx %d (decrementing counter)", idx);
-    }
-
     ESP_LOGI(DEVICES_TAG, "Removed device idx %d", idx);
 
     return true;
 
-}
-
-size_t get_device_count() {
-    return get_int(DEVICE_COUNT_KEY, 0);
 }
 
 bool get_device(size_t idx, device_t *dev) {
@@ -178,13 +161,12 @@ void connect_device(size_t idx) {
 
 void connect_all_devices() {
 
-    size_t dev_count = get_device_count();
-    if (!dev_count) {
-        ESP_LOGE(DEVICES_TAG, "No devices to connect to.");
-        return;
-    }
+    for (size_t i = 0; i < MAX_DEVICES; i++) {
 
-    for (size_t i = 0; i < dev_count; i++) {
+        if (!device_exists(i)) {
+            continue;
+        }
+
         connect_device(i);
     }
 

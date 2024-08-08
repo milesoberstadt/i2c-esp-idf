@@ -18,8 +18,6 @@
 
 #define DEVICES_TAG "DEVICES"
 
-#define DEVICE_COUNT_KEY "dev_count"
-
 /* Device keys configuration */
 #define DEVICE_KEY_PREFIX_SIZE 5   // support up to 99 devices (devXX)
 #define DEVICE_KEY_SUFFIX_SIZE 4 
@@ -40,8 +38,6 @@ bool device_exists(size_t idx);
 bool add_device(esp_bd_addr_t bda, esp_ble_addr_type_t ble_addr_type, size_t device_type, size_t idx);
 
 bool remove_device(size_t idx);
-
-size_t get_device_count();
 
 bool get_device(size_t idx, device_t *dev);
 
