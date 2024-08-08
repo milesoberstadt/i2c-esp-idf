@@ -15,6 +15,8 @@
 
 Layout *layout;
 Devices *devices;
+I2CSlave *i2c_slave;
+UI *ui;
 
 void setup()
 {
@@ -22,16 +24,17 @@ void setup()
     Serial.begin(115200);
     Serial.println("Hello T-Display-S3");
 
-    UI& ui = UI::instance();
-    i2cSlaveInstance().begin();
+    // init singletons
+    ui = &UI::instance();
+    i2c_slave = &I2CSlave::instance();
     
-    ui.getGFX()->print("Hello T-Display-S3");
+    // boot display
+    ui->getGFX()->print("Hello T-Display-S3");
 
+    // setup layout
     layout = new LayoutDevices();
     devices = &Devices::instance();
-
     devices->attach((LayoutDevices*)layout);
-
     layout->draw();
     
 }

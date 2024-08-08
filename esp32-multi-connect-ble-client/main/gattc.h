@@ -17,12 +17,18 @@
 #include "device_config.h"
 #include "constants.h"
 #include "uuid128.h"
-#include "led.h"
 #include "types.h"
 #include "devices.h"
 
+#include "events.h"
+
 #define GATTC_TAG "ESP32_MCBC_GATTC"
+
 #define DEVICE_TAG_SIZE 16
+
+#define INVALID_HANDLE   0
+
+#define REMOTE_NOTIFY_CHAR_UUID    0xFF01
 
 bool init_gattc();
 

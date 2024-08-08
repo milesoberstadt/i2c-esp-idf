@@ -1,6 +1,7 @@
 #include "gap.h"
 
 static bool is_scanning = false;
+static size_t scann_idx;
 
 static esp_ble_scan_params_t ble_scan_params = {
     .scan_type              = BLE_SCAN_TYPE_ACTIVE,
@@ -13,8 +14,7 @@ static esp_ble_scan_params_t ble_scan_params = {
 
 void start_scan(void)
 {
-    uint32_t duration = 30;
-    esp_ble_gap_start_scanning(duration);
+    esp_ble_gap_start_scanning(PAIRING_DURATION);
 }
 
 void scan_started_handler() {
@@ -22,7 +22,8 @@ void scan_started_handler() {
         return;
     }
     is_scanning = true;
-    start_led_blink(get_selected_device(), -1, 500);
+    scann_idx = get_selected_device();
+    on_pairing_start(scann_idx);
 }
 
 void scan_ended_handler() {
@@ -30,7 +31,7 @@ void scan_ended_handler() {
         return;
     }
     is_scanning = false;
-    stop_led_blink(get_selected_device());
+    on_pariring_stop(scann_idx);
 }
 
 void handle_scan_result(esp_ble_gap_cb_param_t *scan_result) {
@@ -63,7 +64,7 @@ void handle_scan_result(esp_ble_gap_cb_param_t *scan_result) {
                 // service uuid is matching, start gattc
                 esp_ble_gap_stop_scanning();
 
-                open_profile(scan_result->scan_rst.bda, scan_result->scan_rst.ble_addr_type, get_selected_device(), type);
+                open_profile(scan_result->scan_rst.bda, scan_result->scan_rst.ble_addr_type, scann_idx, type);
 
             } 
 

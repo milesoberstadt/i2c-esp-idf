@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include <stdbool.h>
 
 #include "esp_log.h"
@@ -9,6 +8,8 @@
 #include "devices.h"
 #include "ui.h"
 #include "ble.h"
+#include "i2c_master.h"
+#include "display_controller.h"
 
 #define MAIN_TAG "ESP32_MULTI_CONNECT_BLE_CLIENT"
 
@@ -44,6 +45,18 @@ void app_main(void)
     ret = init_ui();
     if (!ret) {
         ESP_LOGE(MAIN_TAG, "Failed to initialize UI");
+        return;
+    }
+
+    ret = i2c_master_init();
+    if (!ret) {
+        ESP_LOGE(MAIN_TAG, "Failed to initialize I2C Master");
+        return;
+    }
+
+    ret = init_display();
+    if (!ret) {
+        ESP_LOGE(MAIN_TAG, "Failed to initialize display controller");
         return;
     }
 

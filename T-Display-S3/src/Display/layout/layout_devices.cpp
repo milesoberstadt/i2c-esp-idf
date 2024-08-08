@@ -26,59 +26,6 @@ void LayoutDevices::draw()
 
 }
 
-String LayoutDevices::device_type_str(device_type_t type)
-{
-
-    switch (type)
-    {
-    case DEVICE_M_NODE:
-        return "M-Node";
-    case DEVICE_A_NODE:
-        return "A-Node";
-    case DEVICE_SLEEPER:
-        return "Sleeper";
-    default:
-        return "Unknown";
-    }
-
-}
-
-String LayoutDevices::device_state_str(device_state_t state)
-{
-
-    switch (state)
-    {
-    case error:
-        return "Error";
-    case connected:
-        return "Connected";
-    case pairing:
-        return "Pairing";
-    case disconnecting:
-        return "Disconnecting ...";
-    case connecting:
-        return "Connecting ...";
-    default:
-        return "Disconnected";
-    }
-
-}
-
-String LayoutDevices::device_value_str(uint8_t *value, uint8_t value_size)
-{
-
-    String str = "";
-
-    for (uint8_t i = 0; i < value_size; i++)
-    {
-        str += value[i];
-        str += " ";
-    }
-
-    return str;
-
-}
-
 void LayoutDevices::update(const std::vector<device_t> &devices)
 {
 
@@ -100,7 +47,7 @@ void LayoutDevices::update(const std::vector<device_t> &devices)
 
         switch (device.state)
         {
-            case connected:
+            case dev_state_connected:
                 ui.getGFX()->print(device_type_str(device.type));
 
                 ui.smallTextStyle();

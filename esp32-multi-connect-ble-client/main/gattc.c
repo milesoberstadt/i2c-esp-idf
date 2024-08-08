@@ -2,6 +2,11 @@
 
 static gattc_profile_inst profiles[MAX_DEVICES];
 
+static esp_bt_uuid_t notify_descr_uuid = {
+    .len = ESP_UUID_LEN_16,
+    .uuid = {.uuid16 = ESP_GATT_UUID_CHAR_CLIENT_CONFIG,},
+};
+
 bool is_profile_active(size_t idx) {
     return profiles[idx].gattc_if != ESP_GATT_IF_NONE;
 }
@@ -39,12 +44,10 @@ size_t get_char_idx_by_handle(size_t idx, uint16_t handle) {
     return -1;
 }
 
-void connection_start_handler(size_t idx) {
-    start_led_blink(idx, -1, 300);
-}
-
 void disconnect(size_t idx) {
 
+    on_device_state_changed(idx, dev_state_disconnecting);
+    
     char DEVICE_TAG[DEVICE_TAG_SIZE];
     generate_device_tag(idx, DEVICE_TAG);
 
@@ -62,7 +65,11 @@ void disconnect(size_t idx) {
             return;
         } 
         
+        profiles[idx].app_id = ESP_GATT_IF_NONE;
+        profiles[idx].conn_id = ESP_GATT_IF_NONE;
         profiles[idx].gattc_if = ESP_GATT_IF_NONE;
+
+        ESP_LOGI(DEVICE_TAG, "cleared profile");
         
     }
 
@@ -72,16 +79,15 @@ void disconnect(size_t idx) {
     profiles[idx].device_type = UNKNOWN_DEVICE;
     profiles[idx].data_callback = NULL;
 
-    stop_led_blink(idx);
-    set_led(idx, false);
+    on_device_state_changed(idx, dev_state_disconnected);
 
     ESP_LOGI(DEVICE_TAG, "DEVICE DISCONNECTED");
 
 }
 
 void connection_success_handler(size_t idx) {
-    stop_led_blink(idx);
-    set_led(idx, true);
+    
+    on_device_state_changed(idx, dev_state_connected);
 
     bool ret = add_device(profiles[idx].remote_bda, profiles[idx].ble_addr_type, profiles[idx].device_type, idx);
     if (!ret) {
@@ -388,6 +394,11 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
                 break;
             }
 
+            on_data_received(   idx, 
+                                char_idx, 
+                                p_data->notify.value, 
+                                p_data->notify.value_len);
+
             profiles[idx].data_callback(idx, 
                                         char_idx, 
                                         p_data->notify.value, 
@@ -451,6 +462,12 @@ void esp_gattc_cb(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_ga
 }
 
 bool init_gattc() {
+
+    // init profiles interfaces
+    for (size_t i = 0; i < MAX_DEVICES; i++) {
+        profiles[i].gattc_if = ESP_GATT_IF_NONE;
+    }
+
     //register the callback function to the gattc module
     esp_err_t ret = esp_ble_gattc_register_callback(esp_gattc_cb);
     if(ret){
@@ -463,7 +480,7 @@ bool init_gattc() {
     if (ret){
         ESP_LOGE(GATTC_TAG, "set local  MTU failed, error code = %x", ret);
         return false;
-    }    
+    }
 
     ESP_LOGI(GATTC_TAG, "GATTC initialized");
     return true;
@@ -473,7 +490,7 @@ bool init_gattc() {
 // if called with idx = -1, will try to find next available profile
 void open_profile(esp_bd_addr_t bda, esp_ble_addr_type_t ble_addr_type, size_t idx, device_type_t type) {
 
-    if (idx != -1 && !is_profile_active(idx)) {
+    if (idx != -1 && is_profile_active(idx)) {
         ESP_LOGE(GATTC_TAG, "Trying to open profile at idx %d, but profile is already in use", idx);
         return;
     }
@@ -488,7 +505,9 @@ void open_profile(esp_bd_addr_t bda, esp_ble_addr_type_t ble_addr_type, size_t i
     }
 
     ESP_LOGI(GATTC_TAG, "Registering device at idx %d", idx);
-    connection_start_handler(idx);
+
+    on_device_state_changed(idx, dev_state_connecting);
+    on_device_type_changed(idx, type);
 
     device_type_config_t device_config = get_device_config(type);
 

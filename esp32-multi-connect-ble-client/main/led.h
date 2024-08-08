@@ -19,5 +19,6 @@ void set_led(int led_id, bool state);
 void start_led_blink(int led_id, int blink_count, int blink_rate);
 void stop_led_blink(int led_id);
 bool get_led(int led_id);
+void reset_led(int led_id);
 
 #endif // __LED_H__
