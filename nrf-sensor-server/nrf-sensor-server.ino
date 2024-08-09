@@ -10,7 +10,6 @@
 
 /* --- * Libraries * --- */
 #include <ArduinoBLE.h>
-#include <Adafruit_NeoPixel.h>
 
 #if NODE_TYPE == M_NODE
 #include <LSM6DS3.h>
@@ -38,7 +37,6 @@
 
 /* --- TIME & DURATIONS --- */
 
-#define DISCOVERY_INTERVAL  1000  // Ms
 #define DISCOVERY_DURATION  30    //seconds
 #define SEND_INTERVAL       10    // Hz
 
@@ -47,10 +45,6 @@
 #define BUTTON_PIN  9
 // if button is disabled, the nRF will always advertise when not connected
 
-// LED
-#define LED_PIN     D1
-#define NUM_LEDS    2
-
 // Sleep pin
 #define SLEEP_PIN   D0
 
@@ -58,7 +52,6 @@
 
 int isAdvertising = 0;
 int shouldScan = 0;
-Adafruit_NeoPixel pixels(NUM_LEDS, LED_PIN, NEO_GRB + NEO_KHZ800);
 
 /* For M-Node */
 #if NODE_TYPE == M_NODE
@@ -82,26 +75,18 @@ BLEService dataService(S_NODE_SERVICE_UUID);
 BLEBooleanCharacteristic sleepCharacteristic(SLEEP_UUID, BLEWrite | BLENotify, 100);
 #endif
 
-void clearLEDs()
-{
-  for (int i = 0; i < NUM_LEDS; i++)
-  {
-    pixels.setPixelColor(i, 0);
-  }
-}
 
 void setup() {
-
-  // Led setup
-  pixels.begin();
-  clearLEDs();
-  pixels.show();
 
   // Button setup
   #if USE_BUTTON
   pinMode(BUTTON_PIN, INPUT_PULLUP);  // Initialize the button pin
   #endif
 
+  // Led setup
+  led_setup();
+
+  // Serial setup
   Serial.begin(BAUDRATE);
 
   /* S_NODE SETUP */
@@ -133,6 +118,8 @@ void setup() {
 
   Serial.println(" ");
 
+  start_led_blink(0, 255, 0, 0, 200, 5000);
+
 }
 
 void loop() {
@@ -146,8 +133,9 @@ void loop() {
     Serial.println(central.address());
     Serial.println(" ");
 
+    start_led_blink(0, 0, 255, 0, 200, 5000);
+
     while (central.connected()) {
-      digitalWrite(LED_PIN, LOW);
 
       #if NODE_TYPE == M_NODE
       mnode_loop();
@@ -162,10 +150,13 @@ void loop() {
       #endif
 
       loop_battery();
+      led_loop();
 
       delay(1000 / SEND_INTERVAL);
     }
 
+    stop_led_blink(0);
+    start_led_blink(0, 255, 0, 0, 200, 5000);
     Serial.println("* Disconnected from central device!");
   }
 
@@ -173,6 +164,9 @@ void loop() {
 }
 
 void scan_loop() {
+
+  led_loop();
+
   #if USE_BUTTON
   static unsigned long discoveryStartTime = 0;
   #endif
@@ -188,6 +182,7 @@ void scan_loop() {
     BLE.advertise();
     isAdvertising = 1;
     Serial.println("- Starting Bluetooth discovery for 30 seconds...");
+    start_led_blink(0, 0, 255, 0, 200, 200);
     delay(1000);  // Debounce delay
   }
 
@@ -196,27 +191,19 @@ void scan_loop() {
     BLE.stopAdvertise();
     isAdvertising = 0;
     Serial.println("Discovery ended.");
-    digitalWrite(LED_PIN, HIGH);
-#if USE_BUTTON
+    stop_led_blink(0);
+    #if USE_BUTTON
     discoveryStartTime = 0;  // Reset discovery start time
-#endif
+    #endif
   }
 
-#if USE_BUTTON
-  // start scan on button press
+  #if USE_BUTTON
+  // button press start scan timer
   if (!isAdvertising && digitalRead(BUTTON_PIN) == LOW) {
     discoveryStartTime = millis();
   }
-#endif
+  #endif
 
-  // blinking led during scan
-  if (isAdvertising) {
-    int status = digitalRead(LED_PIN);
-    digitalWrite(LED_PIN, !status);
-    delay(DISCOVERY_INTERVAL);
-  } else {
-    digitalWrite(LED_PIN, HIGH);
-  }
 }
 
 #if NODE_TYPE == A_NODE
@@ -327,7 +314,6 @@ void wakeUp() {
 
 // Fonction de mise en veille
 void enterSleepMode() {
-  digitalWrite(LED_PIN, HIGH);
   BLE.disconnect();
   NRF_POWER->SYSTEMOFF = 1;
 }
