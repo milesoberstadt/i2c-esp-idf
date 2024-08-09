@@ -99,11 +99,31 @@ void disconnect(size_t idx) {
 
 }
 
+// this function is used to search for a service on a device
+void search_service(size_t idx, esp_bt_uuid_t service_uuid) {
+
+    char DEVICE_TAG[DEVICE_TAG_SIZE];
+    generate_device_tag(idx, DEVICE_TAG);
+
+    esp_gatt_status_t status = esp_ble_gattc_search_service(profiles[idx].gattc_if,
+                                                            profiles[idx].conn_id,
+                                                            &service_uuid);
+
+    if (status != ESP_GATT_OK){
+        ESP_LOGE(DEVICE_TAG, "esp_ble_gattc_search_service error, error status = %x", status);
+        disconnect(idx);
+    }
+
+}
+
 // when a characteristic notification subscription is successful, this is called
 void subscription_success_handler(size_t idx) {
 
+    char DEVICE_TAG[DEVICE_TAG_SIZE];
+    generate_device_tag(idx, DEVICE_TAG);
+
     if (!is_profile_active(idx)) {
-        ESP_LOGE(GATTC_TAG, "Trying to handle connection success for profile at idx %d, but profile is not active", idx);
+        ESP_LOGE(DEVICE_TAG, "Trying to handle connection success for profile at idx %d, but profile is not active", idx);
         return;
     }
 
@@ -123,10 +143,12 @@ void subscription_success_handler(size_t idx) {
     // save the device in memory to be able to reconnect to it later
     bool ret = add_device(profiles[idx].remote_bda, profiles[idx].ble_addr_type, profiles[idx].device_type, idx);
     if (!ret) {
-        ESP_LOGE(GATTC_TAG, "Failed to save device");
+        ESP_LOGE(DEVICE_TAG, "Failed to save device");
     }
 
     // we also want to look for the battery characteristic
+    ESP_LOGI(DEVICE_TAG, "All characteristics subscribed ! Looking for battery service ...");
+    search_service(idx, UUID_BATTERY_SERVICE);
 
 }
 
@@ -149,7 +171,7 @@ void connection_oppened_handler(size_t idx, esp_gatt_if_t gattc_if, esp_ble_gatt
 }
 
 // we use this to get the characteristic count of a service
-uint16_t get_characteristic_count(size_t idx, esp_gatt_db_attr_type_t type, uint16_t char_handle) {
+uint16_t get_characteristic_count(size_t idx, esp_gatt_db_attr_type_t type, uint16_t start_handle, uint16_t end_handle, uint16_t char_handle) {
 
     char DEVICE_TAG[DEVICE_TAG_SIZE];
     generate_device_tag(idx, DEVICE_TAG);
@@ -158,8 +180,8 @@ uint16_t get_characteristic_count(size_t idx, esp_gatt_db_attr_type_t type, uint
     esp_gatt_status_t status = esp_ble_gattc_get_attr_count(profiles[idx].gattc_if,
                                                             profiles[idx].conn_id,
                                                             type,
-                                                            profiles[idx].service_start_handle,
-                                                            profiles[idx].service_end_handle,
+                                                            start_handle,
+                                                            end_handle,
                                                             char_handle,
                                                             &count);
     if (status != ESP_GATT_OK){
@@ -243,6 +265,98 @@ size_t discover_characteristics(size_t idx, size_t count) {
     return found_char_count;
 }
 
+// this function is called when the main service of a device is found
+void main_service_found_handler(size_t idx) {
+
+    char DEVICE_TAG[DEVICE_TAG_SIZE];
+    generate_device_tag(idx, DEVICE_TAG);
+
+    device_type_config_t device_config = get_device_config(profiles[idx].device_type);
+    
+    ESP_LOGI(DEVICE_TAG, "Service found, looking for characteristics ...");
+
+    // try looking for the device characteristics
+    uint16_t count = get_characteristic_count(  idx, 
+                                                ESP_GATT_DB_CHARACTERISTIC, 
+                                                profiles[idx].service_start_handle,
+                                                profiles[idx].service_end_handle,
+                                                INVALID_HANDLE);
+    
+    ESP_LOGI(DEVICE_TAG, "Characteritics found : %d", count);
+
+    if (count == 0) {
+        ESP_LOGE(DEVICE_TAG, "0 char detected on the service, disconnecting ...");
+        disconnect(idx);
+        return;
+    }
+
+    ESP_LOGI(DEVICE_TAG, "Getting characteristics ...");
+    size_t found_char = discover_characteristics(idx, count);
+
+    if (found_char < device_config.char_count) {
+        ESP_LOGE(DEVICE_TAG, "Only %d out of %d char were found, disconnecting...", found_char, device_config.char_count);
+        disconnect(idx);
+        return;
+    }
+
+}
+
+// this function is called when the battery service of a device is found
+void battery_service_found_handler(size_t idx) {
+
+    char DEVICE_TAG[DEVICE_TAG_SIZE];
+    generate_device_tag(idx, DEVICE_TAG);
+
+    ESP_LOGI(DEVICE_TAG, "Battery service found, looking for battery level characteristic ...");
+
+    uint16_t count = get_characteristic_count(  idx, 
+                                    ESP_GATT_DB_CHARACTERISTIC, 
+                                    profiles[idx].battery_service_start_handle,
+                                    profiles[idx].battery_service_end_handle,
+                                    INVALID_HANDLE);
+
+    esp_gattc_char_elem_t *char_result = (esp_gattc_char_elem_t *)malloc(sizeof(esp_gattc_char_elem_t) * count);
+
+    if (!char_result){
+        ESP_LOGE(DEVICE_TAG, "gattc no mem");
+        disconnect(idx);
+        return;
+    } 
+
+    esp_gatt_status_t status = esp_ble_gattc_get_char_by_uuid(profiles[idx].gattc_if,
+                                        profiles[idx].conn_id,
+                                        profiles[idx].battery_service_start_handle,
+                                        profiles[idx].battery_service_end_handle,
+                                        UUID_BATTERY_CHARACTERISTIC,
+                                        char_result,
+                                        &count);
+
+    if (status != ESP_GATT_OK){
+        ESP_LOGE(DEVICE_TAG, "esp_ble_gattc_get_char_by_uuid error, error status = %x", status);
+        disconnect(idx);
+        return;
+    }
+
+    if (count > 0 && (char_result[0].properties & ESP_GATT_CHAR_PROP_BIT_NOTIFY)){
+
+        ESP_LOGI(DEVICE_TAG, "char property has notify");
+
+        profiles[idx].battery_char_handle = char_result[0].char_handle;
+
+        esp_ble_gattc_register_for_notify(  profiles[idx].gattc_if, 
+                                            profiles[idx].remote_bda, 
+                                            char_result[0].char_handle);
+
+    } else {
+        ESP_LOGE(DEVICE_TAG, "no char property has notify");
+        disconnect(idx);
+        return;
+    }
+
+    free(char_result);
+    char_result = NULL;
+}
+
 // this function is called when a gattc event is triggered for a specific profile (=device)
 void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *param)
 {
@@ -307,32 +421,41 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
         ESP_LOGI(DEVICE_TAG, "mut set : Status %d, MTU %d, conn_id %d", param->cfg_mtu.status, param->cfg_mtu.mtu, param->cfg_mtu.conn_id);
         ESP_LOGI(DEVICE_TAG, "Looking for services...");
 
-        ret = esp_ble_gattc_search_service(
-            gattc_if, 
-            param->cfg_mtu.conn_id, 
-            &device_config.service_uuid
-        );
-        
-        if (ret){
-            ESP_LOGE(DEVICE_TAG, "search service failed, error status = %x", ret);
-            disconnect(idx);
-            return;
-        }
+        search_service(idx, device_config.service_uuid);
 
         break;
+    // when a search result is found (service search)
     case ESP_GATTC_SEARCH_RES_EVT: {
 
+        // if the service found is the device main service
         if (p_data->search_res.srvc_id.uuid.len == ESP_UUID_LEN_128 && compare_uuid(device_config.service_uuid.uuid.uuid128, p_data->search_res.srvc_id.uuid.uuid.uuid128)) {
-            ESP_LOGI(DEVICE_TAG, "MATCHING SERVICE FOUND");
+
+            // we store the service information
             profiles[idx].service_start_handle = p_data->search_res.start_handle;
             profiles[idx].service_end_handle = p_data->search_res.end_handle;
             profiles[idx].discovered = true;
-        } else {
-            ESP_LOGI(DEVICE_TAG, "Service found, but UUID don't match");
+
+            main_service_found_handler(idx);
+           
+            break;
+        } 
+
+        // if found service is the battery service
+        if (p_data->search_res.srvc_id.uuid.len == ESP_UUID_LEN_128 && compare_uuid(UUID_BATTERY_SERVICE.uuid.uuid128, p_data->search_res.srvc_id.uuid.uuid.uuid128)) {
+
+            profiles[idx].battery_service_start_handle = p_data->search_res.start_handle;
+            profiles[idx].battery_service_end_handle = p_data->search_res.end_handle;
+
+            battery_service_found_handler(idx);
+
+            break;
         }
+
+        ESP_LOGW(DEVICE_TAG, "Service search result found, but UUID don't match");
 
         break;
     }
+    // when the service search is completed
     case ESP_GATTC_SEARCH_CMPL_EVT:
         ESP_LOGI(DEVICE_TAG, "Service search completed: conn_id = %x, status %d", p_data->search_cmpl.conn_id, p_data->search_cmpl.status);
 
@@ -341,42 +464,34 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
             disconnect(idx);
             break;
         }
-        if (profiles[idx].discovered){
-
-            ESP_LOGI(DEVICE_TAG, "Service found, looking for characteristics ...");
-
-            uint16_t count = get_characteristic_count(idx, ESP_GATT_DB_CHARACTERISTIC, INVALID_HANDLE);
-            
-            ESP_LOGI(DEVICE_TAG, "Characteritics found : %d", count);
-
-            if (count == 0) {
-                ESP_LOGE(DEVICE_TAG, "0 char detected on the service, disconnecting ...");
-                disconnect(idx);
-                break;
-            }
-
-            ESP_LOGI(DEVICE_TAG, "Discovering characteristics ...");
-            size_t found_char = discover_characteristics(idx, count);
-
-            if (found_char < device_config.char_count) {
-                ESP_LOGE(DEVICE_TAG, "Only %d out of %d char were found, disconnecting...", found_char, device_config.char_count);
-                disconnect(idx);
-                break;
-            }
-
-        }
         break;
     case ESP_GATTC_REG_FOR_NOTIFY_EVT: {
+        uint16_t char_handle = p_data->reg_for_notify.handle;
         if (p_data->reg_for_notify.status != ESP_GATT_OK){
-            ESP_LOGE(DEVICE_TAG, "Failed to register for notifications, error status =%x, disconnecting...", p_data->reg_for_notify.status);
+            ESP_LOGE(DEVICE_TAG, "Failed to register for notifications for char handle %d, error status =%x, disconnecting...", char_handle, p_data->reg_for_notify.status);
             disconnect(idx);
             break;
         }
 
-        ESP_LOGI(DEVICE_TAG, "Registering for notifications ...");
+        ESP_LOGI(DEVICE_TAG, "Registering for notifications for char idx %d ...", char_handle);
 
-        uint16_t char_handle = p_data->reg_for_notify.handle;
-        uint16_t count = get_characteristic_count(idx, ESP_GATT_DB_DESCRIPTOR, char_handle);
+        uint16_t count;
+
+        // count characteristic descriptors for the correct service
+        if (char_handle == profiles[idx].battery_char_handle) {
+            count = get_characteristic_count(  idx, 
+                                                ESP_GATT_DB_DESCRIPTOR,
+                                                profiles[idx].battery_service_start_handle,
+                                                profiles[idx].battery_service_end_handle,
+                                                char_handle);
+        } else {
+            count = get_characteristic_count(  idx, 
+                                    ESP_GATT_DB_DESCRIPTOR,
+                                    profiles[idx].service_start_handle,
+                                    profiles[idx].service_end_handle,
+                                    char_handle);
+        }
+
         uint16_t notify_en = 1;
 
         if (count > 0){
@@ -438,6 +553,13 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
     case ESP_GATTC_NOTIFY_EVT:
         if (p_data->notify.is_notify) {
 
+            // handle battery service
+            if (p_data->notify.handle == profiles[idx].battery_char_handle) {
+                on_battery_level_received(idx, p_data->notify.value[0]);
+                break;;
+            }
+
+            // handle regular data service notification
             size_t char_idx = get_char_idx_by_handle(idx, p_data->notify.handle);
 
             if (char_idx == -1) {

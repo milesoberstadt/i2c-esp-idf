@@ -82,3 +82,11 @@ void on_data_received(size_t dev_idx, size_t char_idx, uint8_t *data, size_t len
                             data, 
                             len);
 }
+
+void on_battery_level_received(size_t dev_idx, uint8_t level) {
+    ESP_LOGI(EVENTS_TAG, "Battery level received from device %d: %d", dev_idx, level);
+    i2c_send_message_data(  dev_idx, 
+                            msg_dev_battery_level,
+                            &level, 
+                            sizeof(uint8_t));
+}

@@ -26,4 +26,6 @@ void on_device_state_changed(size_t dev_idx, device_state_t state);
 
 void on_data_received(size_t dev_idx, size_t char_idx, uint8_t *data, size_t len);
 
+void on_battery_level_received(size_t dev_idx, uint8_t level);
+
 #endif // __EVENTS_H__

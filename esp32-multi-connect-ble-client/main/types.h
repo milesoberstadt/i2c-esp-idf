@@ -42,6 +42,9 @@ typedef struct {
     uint16_t conn_id;
     uint16_t service_start_handle;
     uint16_t service_end_handle;
+    uint16_t battery_service_start_handle;
+    uint16_t battery_service_end_handle;
+    uint16_t battery_char_handle;
     esp_bd_addr_t remote_bda;
     esp_ble_addr_type_t ble_addr_type;
     size_t device_type;
@@ -70,6 +73,7 @@ typedef enum message_t {
     msg_dev_state = 11,
     msg_dev_data = 12,
     msg_dev_error = 14,
+    msg_dev_battery_level = 15,
     msg_screen_on = 50,
     msg_screen_off = 51,
 } message_t;
