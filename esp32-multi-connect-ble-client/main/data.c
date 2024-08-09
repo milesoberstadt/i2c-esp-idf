@@ -26,3 +26,8 @@ void a_node_cb(size_t device_idx, size_t char_idx, uint8_t *value, uint16_t valu
     // esp_log_buffer_hex(DATA_TAG, value, value_len);
     // To Do : send to slave data from nodes
 }
+
+void sleeper_cb(size_t device_idx, size_t char_idx, uint8_t *value, uint16_t value_len) {
+    // esp_log_buffer_hex(DATA_TAG, value, value_len);
+    // To Do : send to slave data from sleeper
+}

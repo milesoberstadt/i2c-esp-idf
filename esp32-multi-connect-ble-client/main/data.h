@@ -18,4 +18,6 @@ void m_node_cb(size_t device_idx, size_t char_idx, uint8_t *value, uint16_t valu
 
 void a_node_cb(size_t device_idx, size_t char_idx, uint8_t *value, uint16_t value_len);
 
+void sleeper_cb(size_t device_idx, size_t char_idx, uint8_t *value, uint16_t value_len);
+
 #endif // __DATA_H__
