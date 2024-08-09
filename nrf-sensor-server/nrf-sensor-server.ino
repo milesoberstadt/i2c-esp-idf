@@ -10,6 +10,8 @@
 
 /* --- * Libraries * --- */
 #include <ArduinoBLE.h>
+#include <Adafruit_NeoPixel.h>
+
 #if NODE_TYPE == M_NODE
 #include <LSM6DS3.h>
 #endif
@@ -29,7 +31,6 @@
 #define WIND_SPEED_UUID "e2238e3b-702c-406f-bd63-b3e977307e1e"
 #define WIND_DIRECTION_UUID "fbf9ad3a-cef4-41d9-a08b-06f8424a1fb0"
 
-
 // S-Node
 #define S_NODE_SERVICE_UUID "63e4eb54-b0bc-4374-8d2a-5f08f951230a"
 #define SLEEP_UUID "2c41ce1f-acd3-4088-8394-b21a88e88142"
@@ -37,34 +38,36 @@
 
 /* --- TIME & DURATIONS --- */
 
-#define DISCOVERY_INTERVAL 1000  // Ms
-#define DISCOVERY_DURATION 30    //seconds
-#define SEND_INTERVAL 10         // Hz
+#define DISCOVERY_INTERVAL  1000  // Ms
+#define DISCOVERY_DURATION  30    //seconds
+#define SEND_INTERVAL       10    // Hz
 
 // Button
-#define USE_BUTTON 1
-#define BUTTON_PIN 9
+#define USE_BUTTON  1
+#define BUTTON_PIN  9
 // if button is disabled, the nRF will always advertise when not connected
 
 // LED
-#define LED_PIN LED_BUILTIN
+#define LED_PIN     D1
+#define NUM_LEDS    2
 
 // Sleep pin
-#define SLEEP_PIN D0
+#define SLEEP_PIN   D0
 
 /* --- * Declarations * --- */
 
 int isAdvertising = 0;
 int shouldScan = 0;
+Adafruit_NeoPixel pixels(NUM_LEDS, LED_PIN, NEO_GRB + NEO_KHZ800);
 
 /* For M-Node */
 #if NODE_TYPE == M_NODE
-  #define MNODE_BUFFER_SIZE 30
-  BLEService dataService(M_NODE_SERVICE_UUID); 
-  BLECharacteristic gyroCharacteristic(GYRO_UUID, BLERead | BLENotify, MNODE_BUFFER_SIZE);
-  BLECharacteristic accelCharacterictic(ACCEL_UUID, BLERead | BLENotify, MNODE_BUFFER_SIZE);
-  // Create a instance of class LSM6DS3
-  LSM6DS3 myIMU(I2C_MODE, 0x6A);    // I2C device address 0x6A
+#define MNODE_BUFFER_SIZE 30
+BLEService dataService(M_NODE_SERVICE_UUID); 
+BLECharacteristic gyroCharacteristic(GYRO_UUID, BLERead | BLENotify, MNODE_BUFFER_SIZE);
+BLECharacteristic accelCharacterictic(ACCEL_UUID, BLERead | BLENotify, MNODE_BUFFER_SIZE);
+// Create a instance of class LSM6DS3
+LSM6DS3 myIMU(I2C_MODE, 0x6A);    // I2C device address 0x6A
 #endif
 
 /* For A-Node */
@@ -79,29 +82,42 @@ BLEService dataService(S_NODE_SERVICE_UUID);
 BLEBooleanCharacteristic sleepCharacteristic(SLEEP_UUID, BLEWrite | BLENotify, 100);
 #endif
 
+void clearLEDs()
+{
+  for (int i = 0; i < NUM_LEDS; i++)
+  {
+    pixels.setPixelColor(i, 0);
+  }
+}
+
 void setup() {
-  //NRF_POWER->DCDCEN = 1;
-  pinMode(LED_PIN, OUTPUT);
-#if USE_BUTTON
+
+  // Led setup
+  pixels.begin();
+  clearLEDs();
+  pixels.show();
+
+  // Button setup
+  #if USE_BUTTON
   pinMode(BUTTON_PIN, INPUT_PULLUP);  // Initialize the button pin
-#endif
+  #endif
 
   Serial.begin(BAUDRATE);
 
-/* S_NODE SETUP */
-#if NODE_TYPE == S_NODE
-  snode_setup();
-#endif
+  /* S_NODE SETUP */
+  #if NODE_TYPE == S_NODE
+    snode_setup();
+  #endif
 
-/* M_NODE SETUP */
-#if NODE_TYPE == M_NODE
-  mnode_setup();
-#endif
+  /* M_NODE SETUP */
+  #if NODE_TYPE == M_NODE
+    mnode_setup();
+  #endif
 
-/* A_NODE SETUP */
-#if NODE_TYPE == A_NODE
-  anode_setup();
-#endif
+  /* A_NODE SETUP */
+  #if NODE_TYPE == A_NODE
+    anode_setup();
+  #endif
 
   /* BLE SETUP */
   if (!BLE.begin()) {
@@ -111,12 +127,12 @@ void setup() {
   }
   BLE.setAdvertisedService(dataService);
   BLE.addService(dataService);
+  BLE.poll();
 
   setup_battery();
 
-  BLE.poll();
-
   Serial.println(" ");
+
 }
 
 void loop() {
@@ -133,17 +149,17 @@ void loop() {
     while (central.connected()) {
       digitalWrite(LED_PIN, LOW);
 
-#if NODE_TYPE == M_NODE
+      #if NODE_TYPE == M_NODE
       mnode_loop();
-#endif
+      #endif
 
-#if NODE_TYPE == A_NODE
+      #if NODE_TYPE == A_NODE
       anode_loop();
-#endif
+      #endif
 
-#if NODE_TYPE == S_NODE
+      #if NODE_TYPE == S_NODE
       snode_loop();
-#endif
+      #endif
 
       loop_battery();
 
@@ -157,15 +173,15 @@ void loop() {
 }
 
 void scan_loop() {
-#if USE_BUTTON
+  #if USE_BUTTON
   static unsigned long discoveryStartTime = 0;
-#endif
+  #endif
 
-#if USE_BUTTON
+  #if USE_BUTTON
   shouldScan = discoveryStartTime > 0 && millis() - discoveryStartTime < DISCOVERY_DURATION * 1000;
-#else
+  #else
   shouldScan = 1;
-#endif
+  #endif
 
   // start scan if it should
   if (!isAdvertising && shouldScan) {
@@ -263,17 +279,18 @@ void mnode_loop() {
   char gyro[MNODE_BUFFER_SIZE] = {0};
   sprintf(gyro, "%.2f;%.2f;%.2f\0", myIMU.readFloatGyroX(), myIMU.readFloatGyroY(), myIMU.readFloatGyroZ());
   gyroCharacteristic.writeValue(gyro);
-  Serial.println(gyro);
+  // Serial.println(gyro);
 
   char accelerometer[MNODE_BUFFER_SIZE] = {0};
   sprintf(accelerometer, "%.2f;%.2f;%.2f\0", myIMU.readFloatAccelX(), myIMU.readFloatAccelY(), myIMU.readFloatAccelZ());
   accelCharacterictic.writeValue(accelerometer);
-  Serial.println(accelerometer);
+  // Serial.println(accelerometer);
 }
 #endif
 
 #if NODE_TYPE == S_NODE
 void snode_setup() {
+  NRF_POWER->DCDCEN = 1;
   pinMode(SLEEP_PIN, OUTPUT);
   dataService.addCharacteristic(sleepCharacteristic);
   digitalWrite(SLEEP_PIN, HIGH);  // By default send wake-up signal
@@ -281,7 +298,7 @@ void snode_setup() {
 
 void snode_loop() {
   if (sleepCharacteristic.valueUpdated()) {
-bool sleep_value = sleepCharacteristic.value();
+    bool sleep_value = sleepCharacteristic.value();
 
     if (sleep_value) {
       // Sleep
@@ -302,7 +319,6 @@ void handleSignalChange() {
     enterSleepMode();
   }
 }
-
 
 // Fonction de réveil
 void wakeUp() {

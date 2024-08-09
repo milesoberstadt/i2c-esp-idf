@@ -3,6 +3,10 @@
 
 #define BATTERY_SEND_INTERVAL 10000 // ms
 
+#define BATTERY_PIN_MAX_VOLTAGE 5.5 // v -> the value to get 1023 on the pin
+#define BATTERY_MAX_VOLTAGE 5 // v -> the voltage of the battery when fully charged
+#define BATTERY_MIN_VOLTAGE 3.0 // v -> the voltage of the battery when it is considered empty
+
 #define BATTERY_PIN 3 // ADC2
 
 BLEService batteryService(BATTERY_SERVICE_UUID);
@@ -16,6 +20,19 @@ void setup_battery() {
     BLE.addService(batteryService);
 }
 
+int getBatteryCharge() {
+    int batteryCharge = analogRead(BATTERY_PIN);
+    float batteryVoltage = (batteryCharge * BATTERY_PIN_MAX_VOLTAGE) / 1023;
+    int batteryPercentage = ((batteryVoltage - BATTERY_MIN_VOLTAGE) / (BATTERY_MAX_VOLTAGE - BATTERY_MIN_VOLTAGE)) * 100;
+    if (batteryPercentage > 100) {
+        return 100;
+    }
+    if (batteryPercentage < 0) {
+        return 0;
+    }
+    return batteryPercentage;
+}
+
 void loop_battery() {
 
     unsigned long currentMillis = millis();
@@ -23,7 +40,9 @@ void loop_battery() {
     if (currentMillis - batterySendPreviousMillis >= BATTERY_SEND_INTERVAL) {
         batterySendPreviousMillis = currentMillis;
 
-        int batteryCharge = analogRead(BATTERY_PIN);
+        int batteryCharge = getBatteryCharge();
+        Serial.print("Battery charge: ");
+        Serial.println(batteryCharge);
         batteryChargeCharacteristic.writeValue(batteryCharge);
     }
 
