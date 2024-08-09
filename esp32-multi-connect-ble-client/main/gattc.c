@@ -1,7 +1,10 @@
 #include "gattc.h"
 
+
+// store connected devices info
 static gattc_profile_inst profiles[MAX_DEVICES];
 
+// constant notify descriptor uuid
 static esp_bt_uuid_t notify_descr_uuid = {
     .len = ESP_UUID_LEN_16,
     .uuid = {.uuid16 = ESP_GATT_UUID_CHAR_CLIENT_CONFIG,},
@@ -23,6 +26,7 @@ size_t next_available_profile_idx() {
     return -1;
 }
 
+// used to generate device tag, for logging purpose
 void generate_device_tag(size_t idx, char *tag) {
     snprintf(tag, DEVICE_TAG_SIZE, "DEVICE_%d", idx);
 }
@@ -47,6 +51,7 @@ size_t get_char_idx_by_handle(size_t idx, uint16_t handle) {
     return -1;
 }
 
+// call this function to disconnect from bluetooth & clear the profile
 void disconnect(size_t idx) {
 
     if (!is_profile_active(idx)) {
@@ -94,6 +99,7 @@ void disconnect(size_t idx) {
 
 }
 
+// when a characteristic notification subscription is successful, this is called
 void subscription_success_handler(size_t idx) {
 
     if (!is_profile_active(idx)) {
@@ -101,23 +107,30 @@ void subscription_success_handler(size_t idx) {
         return;
     }
 
+    // we want to check if every characteristic has been subscribed to, so we count it.
     profiles[idx].subscribe_count++;
-
     device_type_config_t device_config = get_device_config(profiles[idx].device_type);
 
+    // if some of them are missing, we wait for them
     if (profiles[idx].subscribe_count != device_config.char_count) {
         return;
     }
     
+    // if we reach this code, we have successfully subscribed to all characteristics
+    // we can consider the device as connected
     on_device_state_changed(idx, dev_state_connected);
 
+    // save the device in memory to be able to reconnect to it later
     bool ret = add_device(profiles[idx].remote_bda, profiles[idx].ble_addr_type, profiles[idx].device_type, idx);
     if (!ret) {
         ESP_LOGE(GATTC_TAG, "Failed to save device");
     }
 
+    // we also want to look for the battery characteristic
+
 }
 
+// this function is called when a gattc connection is opened
 void connection_oppened_handler(size_t idx, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *p_data) {
     profiles[idx].conn_id = p_data->open.conn_id;
     profiles[idx].connected = true;
@@ -135,6 +148,7 @@ void connection_oppened_handler(size_t idx, esp_gatt_if_t gattc_if, esp_ble_gatt
 
 }
 
+// we use this to get the characteristic count of a service
 uint16_t get_characteristic_count(size_t idx, esp_gatt_db_attr_type_t type, uint16_t char_handle) {
 
     char DEVICE_TAG[DEVICE_TAG_SIZE];
@@ -158,6 +172,7 @@ uint16_t get_characteristic_count(size_t idx, esp_gatt_db_attr_type_t type, uint
 
 }
 
+// this function is used to discover characteristics of a service and subscribe to them
 size_t discover_characteristics(size_t idx, size_t count) {
     char DEVICE_TAG[DEVICE_TAG_SIZE];
     generate_device_tag(idx, DEVICE_TAG);
@@ -172,8 +187,10 @@ size_t discover_characteristics(size_t idx, size_t count) {
         return 0;
     } 
 
+    // get the device configuration
     device_type_config_t device_config = get_device_config(profiles[idx].device_type);
 
+    // we loop through all characteristics that are expected
     for (size_t i = 0; i < device_config.char_count; i++) {
 
         esp_bt_uuid_t char_uuid = device_config.char_uuids[i];
@@ -183,6 +200,7 @@ size_t discover_characteristics(size_t idx, size_t count) {
         
         uint16_t char_count;
 
+        // we get the characteristic by its UUID
         esp_gatt_status_t status = esp_ble_gattc_get_char_by_uuid(profiles[idx].gattc_if,
                                             profiles[idx].conn_id,
                                             profiles[idx].service_start_handle,
@@ -198,12 +216,14 @@ size_t discover_characteristics(size_t idx, size_t count) {
 
         ESP_LOGI(DEVICE_TAG, "Characteristic found, char_handle %d char property %x", char_result[0].char_handle, char_result[0].properties);
 
+        // if we found it, we check if it has the notify property
         if (char_count > 0 && (char_result[0].properties & ESP_GATT_CHAR_PROP_BIT_NOTIFY)){
 
             ESP_LOGI(DEVICE_TAG, "char property has notify");
 
             profiles[idx].char_handles[i] = char_result[0].char_handle;
 
+            // we register for notifications
             esp_ble_gattc_register_for_notify(  profiles[idx].gattc_if, 
                                                 profiles[idx].remote_bda, 
                                                 char_result[0].char_handle);
@@ -223,9 +243,11 @@ size_t discover_characteristics(size_t idx, size_t count) {
     return found_char_count;
 }
 
+// this function is called when a gattc event is triggered for a specific profile (=device)
 void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *param)
 {
 
+    // we have to find the profile index by the gattc interface
     size_t idx = get_idx_by_gattc_if(gattc_if);
 
     if (idx == -1) {
@@ -233,11 +255,14 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
         return;
     }
 
+    // we generate a tag for logging
     char DEVICE_TAG[DEVICE_TAG_SIZE];
     generate_device_tag(idx, DEVICE_TAG);
 
+    // we get the configuration of the device
     device_type_config_t device_config = get_device_config(profiles[idx].device_type);
 
+    // and event parameters
     esp_ble_gattc_cb_param_t *p_data = (esp_ble_gattc_cb_param_t *)param;
 
     esp_err_t ret;
@@ -460,6 +485,7 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
     }
 }
 
+// this is the main callback function for the gattc module. it handle shared events, and dispatches device-specific ones to the right profile callback
 void esp_gattc_cb(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *param)
 {
 
@@ -472,7 +498,6 @@ void esp_gattc_cb(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_ga
                 ESP_LOGI(GATTC_TAG, "Reg app failed, app_id %04x, status %d",
                         param->reg.app_id,
                         param->reg.status);
-                disconnect(get_idx_by_gattc_if(gattc_if));
                 return;
             }
             break;
