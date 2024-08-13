@@ -1,18 +1,38 @@
 #include "sd.h"
 
-esp_err_t write_file(const char *path, char *data)
-{
-    ESP_LOGI(sd_TAG, "Opening file %s", path);
-    FILE *f = fopen(path, "w");
-    if (f == NULL) {
-        ESP_LOGE(sd_TAG, "Failed to open file for writing");
-        return ESP_FAIL;
-    }
-    fprintf(f, data);
-    fclose(f);
-    ESP_LOGI(sd_TAG, "File written");
+#include <stdio.h>
+#include <string.h>
 
-    return ESP_OK;
+uint8_t sd_open_file(const char *path)
+{
+    FILE *file = fopen(path, "a+");
+    if (file == NULL) {
+        file = fopen(path, "w");
+        if (file == NULL) {
+            return -1;
+        }
+    }
+    return fileno(file);
+}
+
+bool sd_close_file(uint8_t handle)
+{
+    return (fclose(fdopen(handle, "a")) == 0);
+}
+
+bool sd_write_line(uint8_t handle, char* buffer, size_t len)
+{
+    FILE *file = fdopen(handle, "a");
+    if (file == NULL) {
+        return false;
+    }
+    if (fwrite(buffer, sizeof(char), len, file) != len) {
+        return false;
+    }
+    if (fwrite("\n", sizeof(char), 1, file) != 1) {
+        return false;
+    }
+    return (fclose(file) == 0);
 }
 
 void init_sd()

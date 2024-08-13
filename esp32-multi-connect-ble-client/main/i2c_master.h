@@ -2,11 +2,13 @@
 #define __I2C_MASTER_H__
 
 #include <stdio.h>
-#include "driver/i2c.h"
-#include "esp_log.h"
-#include "freertos/task.h"
-#include "constants.h"
 #include <stdbool.h>
+
+#include "driver/i2c_master.h"
+
+#include "esp_log.h"
+
+#include "constants.h"
 
 #define I2C_TAG "I2C_Master"
 
