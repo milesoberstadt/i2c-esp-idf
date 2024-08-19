@@ -1,18 +1,6 @@
 #include "i2c_messages.h"
 
-size_t extract_data(uint8_t* message, uint8_t* output) {
-    size_t extracted_length = 0;
-    uint8_t* data = message + 2; // Skip the first 2 bytes
-
-    while (extracted_length < I2C_DATA_LEN-2*sizeof(uint8_t) && *data != '\0') {
-        output[extracted_length] = *data;
-        data++;
-        extracted_length++;
-    }
-
-    return extracted_length;
-
-}
+#define HEADER_SIZE 2
 
 void process_message(uint8_t* data, size_t length) {
 
@@ -71,17 +59,15 @@ void process_message(uint8_t* data, size_t length) {
             break;
         case msg_dev_data:
 
-            uint8_t* dev_data = malloc(I2C_DATA_LEN-2*sizeof(uint8_t));
-            size_t msg_len = extract_data(data, dev_data);
-
-            char* dev_data_str = malloc(msg_len*sizeof(char));
-            device_value_str(dev_data, msg_len, dev_data_str, msg_len);
+            char* dev_data_str = malloc(I2C_DATA_LEN-HEADER_SIZE*sizeof(char));
+            device_value_str(   data+HEADER_SIZE, 
+                                dev_data_str,
+                                I2C_DATA_LEN-HEADER_SIZE);
 
             ESP_LOGI(i2c_MESSAGES, "Device %d data: %s\n", dev_idx, dev_data_str);
 
             // Devices::instance().set_device_value(dev_idx, data, msg_len);
 
-            free(dev_data);
             free(dev_data_str);
 
             break;

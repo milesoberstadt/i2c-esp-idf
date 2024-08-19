@@ -68,11 +68,11 @@ size_t device_state_str(device_state_t state, char* buffer, size_t buffer_size)
     return len;
 }
 
-size_t device_value_str(uint8_t* value, uint8_t value_size, char* buffer, size_t buffer_size)
+size_t device_value_str(uint8_t* value, char* buffer, size_t buffer_size)
 {
     size_t len = 0;
 
-    for (uint8_t i = 0; i < value_size; i++)
+    for (uint8_t i = 0; i < buffer_size; i++)
     {
         size_t temp_len = snprintf(buffer + len, buffer_size - len, "%d ", value[i]);
 

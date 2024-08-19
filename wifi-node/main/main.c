@@ -27,13 +27,5 @@ void app_main(void)
 
   display_text(" Ready !", 9);
   
-  // write i2c data received to sd card
-  uint8_t data_received[I2C_DATA_LEN];
-  for (;;) {
-
-    i2c_receive(data_received);
-    esp_log_buffer_hex("MAIN", data_received, I2C_DATA_LEN);
-    // process_message(&data_received, sizeof(uint8_t));
-
-  }
+  i2c_start_receive();
 }

@@ -39,11 +39,28 @@ void i2c_slave_init() {
 
 }
 
-void i2c_receive(uint8_t *data_received) {
+void i2c_receive_task(void *pvParameters) {
+    uint8_t data_received[I2C_DATA_LEN];
     i2c_slave_rx_done_event_data_t rx_data;
-    ESP_ERROR_CHECK(i2c_slave_receive(slave_handle, data_rd, I2C_DATA_LEN));
-    xQueueReceive(s_receive_queue, &rx_data, pdMS_TO_TICKS(10000));
-    // Receive done.
-    memccpy(data_received, rx_data.buffer, 1, I2C_DATA_LEN);
 
+    while (1) {
+        esp_err_t ret = i2c_slave_receive(slave_handle, data_rd, I2C_DATA_LEN);
+
+        if (ret != ESP_OK) {
+            ESP_LOGE(i2c_SLAVE, "Error receiving data");
+            vTaskDelay( pdMS_TO_TICKS( 1000 ));
+            continue;
+        }
+        
+        xQueueReceive(s_receive_queue, &rx_data, portMAX_DELAY);
+        // Receive done.
+        memcpy(data_received, rx_data.buffer, I2C_DATA_LEN);
+
+        // Execute the action based on the received value.
+        process_message(data_received, I2C_DATA_LEN);
+    }
+}
+
+void i2c_start_receive() {
+    xTaskCreate(i2c_receive_task, "i2c_receive_task", 4096, NULL, 5, NULL);
 }
