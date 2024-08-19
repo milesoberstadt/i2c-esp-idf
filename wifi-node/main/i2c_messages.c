@@ -4,7 +4,7 @@ size_t extract_data(uint8_t* message, uint8_t* output) {
     size_t extracted_length = 0;
     uint8_t* data = message + 2; // Skip the first 2 bytes
 
-    while (extracted_length < I2C_MESSAGE_MAX_LEN-2*sizeof(uint8_t) && *data != '\0') {
+    while (extracted_length < I2C_DATA_LEN-2*sizeof(uint8_t) && *data != '\0') {
         output[extracted_length] = *data;
         data++;
         extracted_length++;
@@ -71,7 +71,7 @@ void process_message(uint8_t* data, size_t length) {
             break;
         case msg_dev_data:
 
-            uint8_t* dev_data = malloc(I2C_MESSAGE_MAX_LEN-2*sizeof(uint8_t));
+            uint8_t* dev_data = malloc(I2C_DATA_LEN-2*sizeof(uint8_t));
             size_t msg_len = extract_data(data, dev_data);
 
             char* dev_data_str = malloc(msg_len*sizeof(char));

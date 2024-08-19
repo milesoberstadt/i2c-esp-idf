@@ -30,13 +30,10 @@
 /* I2C configuration */
 #define I2C_MASTER_SCL_IO           9
 #define I2C_MASTER_SDA_IO           8
-#define I2C_PORT_NUM                I2C_NUM_0
-#define I2C_MASTER_FREQ_HZ          100000
-#define I2C_MASTER_TX_BUF_DISABLE   0
-#define I2C_MASTER_RX_BUF_DISABLE   0
+#define I2C_PORT_NUM                I2C_NUM_1
 
-#define I2C_WIFI_SLAVE_ADDR                0x29
+#define I2C_WIFI_SLAVE_ADDR                0x28
 
-#define I2C_BUFFER_SIZE 64
+#define I2C_DATA_LEN 32
 
 #endif

@@ -6,6 +6,7 @@
 #include "i2c_slave.h"
 #include "i2c_messages.h"
 #include "display.h"
+#include "esp_log.h"
 
 void app_main(void)
 {
@@ -19,28 +20,20 @@ void app_main(void)
   ESP_ERROR_CHECK(ret);
 
   ESP_LOGI(wifi_TAG, "ESP_WIFI_MODE_STA");
-  wifi_init_sta();
+  // wifi_init_sta();
   init_sd();
   init_display();
-  init_i2c_slave();
+  i2c_slave_init();
 
   display_text(" Ready !", 9);
-
-  // create file on sd card containing wifi information
-  // const char *path = MOUNT_POINT "/wifi.txt";
-  // snprintf(data, EXAMPLE_MAX_CHAR_SIZE, "SSID: %s\nPassword: %s\n", ESP_WIFI_SSID, ESP_WIFI_PASS);
-  // ret = write_file(path, data);
   
   // write i2c data received to sd card
-  while (1)
-  {
-    i2c_receive();
+  uint8_t data_received[I2C_DATA_LEN];
+  for (;;) {
+
+    i2c_receive(data_received);
+    esp_log_buffer_hex("MAIN", data_received, I2C_DATA_LEN);
     // process_message(&data_received, sizeof(uint8_t));
-    // snprintf(data, EXAMPLE_MAX_CHAR_SIZE, "Data received: %d\n", data_received);
-    // ret = write_file(MOUNT_POINT "/i2c.txt", data);
-    // if (ret != ESP_OK)
-    // {
-    //   return;
-    // }
+
   }
 }

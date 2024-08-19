@@ -47,7 +47,7 @@ void app_main(void)
         return;
     }
 
-    ret = i2c_master_init();
+    ret = i2c_init();
     if (!ret) {
         ESP_LOGE(MAIN_TAG, "Failed to initialize I2C Master");
         return;

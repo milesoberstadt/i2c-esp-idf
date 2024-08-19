@@ -2,18 +2,19 @@
 
 i2c_master_dev_handle_t dev_handle;
 
-bool i2c_master_init() {
+bool i2c_init() {
 
+    // Your code here
     i2c_master_bus_config_t i2c_mst_config = {
         .clk_source = I2C_CLK_SRC_DEFAULT,
         .i2c_port = I2C_PORT_NUM,
         .scl_io_num = I2C_MASTER_SCL_IO,
         .sda_io_num = I2C_MASTER_SDA_IO,
         .glitch_ignore_cnt = 7,
-        .flags.enable_internal_pullup = true,
+        .flags.enable_internal_pullup = 1
     };
-
     i2c_master_bus_handle_t bus_handle;
+
     ESP_ERROR_CHECK(i2c_new_master_bus(&i2c_mst_config, &bus_handle));
 
     i2c_device_config_t dev_cfg = {
@@ -28,9 +29,9 @@ bool i2c_master_init() {
 
 }
 
-bool i2c_master_write_slave(uint8_t *data_wr, size_t len, uint8_t addr) {
+bool i2c_write(uint8_t *data_wr) {
 
-    esp_err_t ret = i2c_master_transmit(dev_handle, data_wr, len, -1);
+    esp_err_t ret = i2c_master_transmit(dev_handle, data_wr, I2C_DATA_LEN, -1);
 
     if (ret != ESP_OK)
     {
