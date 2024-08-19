@@ -7,6 +7,7 @@
 #include "i2c_messages.h"
 #include "display.h"
 #include "esp_log.h"
+#include "devices.h"
 
 void app_main(void)
 {
@@ -24,8 +25,9 @@ void app_main(void)
   init_sd();
   init_display();
   i2c_slave_init();
+  init_devices();
 
-  display_text(" Ready !", 9);
+  display_text(" Ready !", 1, 9);
   
   i2c_start_receive();
 }

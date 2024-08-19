@@ -10,6 +10,7 @@
 #include "utils.h"
 #include "constants.h"
 #include "display.h"
+#include "devices.h"
 
 #define i2c_MESSAGES "I2C_Messages"
 

@@ -53,10 +53,8 @@ void i2c_receive_task(void *pvParameters) {
         }
         
         xQueueReceive(s_receive_queue, &rx_data, portMAX_DELAY);
-        // Receive done.
         memcpy(data_received, rx_data.buffer, I2C_DATA_LEN);
 
-        // Execute the action based on the received value.
         process_message(data_received, I2C_DATA_LEN);
     }
 }

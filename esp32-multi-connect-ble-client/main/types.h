@@ -65,16 +65,16 @@ typedef enum device_state_t {
 } device_state_t;
 
 typedef enum message_t {
-    msg_err = 0,
-    msg_init_start = 1,
-    msg_init_end = 2,
-    msg_dev_selected = 3,
-    msg_dev_type = 10,
-    msg_dev_state = 11,
-    msg_dev_data = 12,
-    msg_dev_error = 14,
-    msg_dev_battery_level = 15,
-    msg_screen_toggle = 50,
+    msg_err = 0x00,
+    msg_init_start = 0x01,
+    msg_init_end = 0x02,
+    msg_dev_selected = 0x03,
+    msg_dev_type = 0x10,
+    msg_dev_state = 0x11,
+    msg_dev_data = 0x12,
+    msg_dev_error = 0x14,
+    msg_dev_battery_level = 0x15,
+    msg_screen_toggle = 0x50,
 } message_t;
 
 typedef enum preference_t {

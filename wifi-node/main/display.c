@@ -42,9 +42,30 @@ void init_display()
 
 }
 
-void display_text(char *text, size_t len)
+void display_text(char *text, size_t len, size_t line)
 {
     ssd1306_clear_screen(&dev, false);
-    ssd1306_display_text(&dev, 0, text, len, false);
+    ssd1306_display_text(&dev, line, text, len, false);
     ssd1306_show_buffer(&dev);
+}
+
+void display_device(size_t idx, device_t device) {
+    ssd1306_clear_screen(&dev, false);
+
+    char* type = malloc(2+DEV_TYPE_STR_LEN*sizeof(char));
+    type[0] = '0'+idx;
+    type[1] = ':';
+    device_type_str(device.type, type+2);
+    ssd1306_display_text(&dev, 0, type, strlen(type), false);
+
+    char* state = malloc(DEV_STATE_STR_LEN*sizeof(char));
+    device_state_str(device.state, state);
+    ssd1306_display_text(&dev, 1, state, strlen(state), false);
+
+    // char* value = malloc(10*sizeof(char));
+    // sprintf(value, "%d", device.value[0]);
+    // ssd1306_display_text(&dev, 2, value, strlen(value), false);
+
+    ssd1306_show_buffer(&dev);
+
 }

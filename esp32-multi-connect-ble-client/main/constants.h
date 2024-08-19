@@ -11,8 +11,9 @@
 #define LED_PIN GPIO_NUM_10
 // to LED_PIN + MAX_DEVICES
 
-// enable led state logging
+// enable components logging
 #define LOG_LED 0
+#define LOG_I2C 1
 
 /* Buttons */
 #define PAIR_BUTTON_PIN GPIO_NUM_3
