@@ -39,7 +39,7 @@ bool add_device(esp_bd_addr_t bda, esp_ble_addr_type_t ble_addr_type, size_t dev
 
 bool remove_device(size_t idx);
 
-bool get_device(size_t idx, device_t *dev);
+bool get_device(size_t idx, saved_device_t *dev);
 
 void connect_device(size_t idx);
 

@@ -4,6 +4,12 @@
 #include "sd.h"
 #include "constants.h"
 #include "i2c_slave.h"
+#include "i2c_messages.h"
+#include "display.h"
+#include "esp_log.h"
+#include "devices.h"
+
+#define MAIN "main"
 
 void app_main(void)
 {
@@ -16,26 +22,21 @@ void app_main(void)
   }
   ESP_ERROR_CHECK(ret);
 
-  ESP_LOGI(wifi_TAG, "ESP_WIFI_MODE_STA");
-  wifi_init_sta();
+  // wifi_init_sta();
   init_sd();
+  init_display();
   i2c_slave_init();
+  init_devices();
 
-  // create file on sd card containing wifi information
-  char data[EXAMPLE_MAX_CHAR_SIZE];
-  const char *path = MOUNT_POINT "/wifi.txt";
-  snprintf(data, EXAMPLE_MAX_CHAR_SIZE, "SSID: %s\nPassword: %s\n", ESP_WIFI_SSID, ESP_WIFI_PASS);
-  ret = write_file(path, data);
+  display_text(" Ready !", 9, 1);
   
-  // write i2c data received to sd card
-  while (1)
+  i2c_start_receive();
+
+  ESP_LOGI(MAIN, "Initialization complete. Getting devices data...");
+
+  for (int i = 0; i < DEVICES_COUNT; i++)
   {
-    uint8_t data_received = i2c_slave_receive();
-    snprintf(data, EXAMPLE_MAX_CHAR_SIZE, "Data received: %d\n", data_received);
-    ret = write_file(MOUNT_POINT "/i2c.txt", data);
-    if (ret != ESP_OK)
-    {
-      return;
-    }
+    i2c_send_message(msg_req_dev, i);
   }
+
 }

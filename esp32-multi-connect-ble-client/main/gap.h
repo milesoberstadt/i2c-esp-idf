@@ -14,7 +14,6 @@
 #include "constants.h"
 #include "uuid128.h"
 #include "gattc.h"
-#include "data.h"
 #include "ui.h"
 
 #include "events.h"

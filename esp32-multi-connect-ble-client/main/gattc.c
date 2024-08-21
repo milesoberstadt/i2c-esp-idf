@@ -91,7 +91,6 @@ void disconnect(size_t idx) {
     profiles[idx].discovered = false;
     profiles[idx].subscribe_count = 0;
     profiles[idx].device_type = UNKNOWN_DEVICE;
-    profiles[idx].data_callback = NULL;
 
     on_device_state_changed(idx, dev_state_disconnected);
 
@@ -201,13 +200,14 @@ size_t discover_characteristics(size_t idx, size_t count) {
 
     esp_gattc_char_elem_t *char_result = (esp_gattc_char_elem_t *)malloc(sizeof(esp_gattc_char_elem_t) * count);
 
-    size_t found_char_count = 0;
-
     if (!char_result){
         ESP_LOGE(DEVICE_TAG, "gattc no mem");
         disconnect(idx);
         return 0;
     } 
+
+    size_t found_char_count = 0;
+
 
     // get the device configuration
     device_type_config_t device_config = get_device_config(profiles[idx].device_type);
@@ -334,6 +334,7 @@ void battery_service_found_handler(size_t idx) {
     if (status != ESP_GATT_OK){
         ESP_LOGE(DEVICE_TAG, "esp_ble_gattc_get_char_by_uuid error, error status = %x", status);
         disconnect(idx);
+        free(char_result);
         return;
     }
 
@@ -350,6 +351,7 @@ void battery_service_found_handler(size_t idx) {
     } else {
         ESP_LOGE(DEVICE_TAG, "no char property has notify");
         disconnect(idx);
+        free(char_result);
         return;
     }
 
@@ -571,13 +573,6 @@ void gattc_profile_callback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
                                 char_idx, 
                                 p_data->notify.value, 
                                 p_data->notify.value_len);
-
-            if (profiles[idx].data_callback) {
-                profiles[idx].data_callback(idx, 
-                                            char_idx, 
-                                            p_data->notify.value, 
-                                            p_data->notify.value_len);
-            }
                                         
         }
         break;
@@ -690,7 +685,6 @@ void open_profile(esp_bd_addr_t bda, esp_ble_addr_type_t ble_addr_type, size_t i
 
     profiles[idx].ble_addr_type = ble_addr_type;
     profiles[idx].device_type = type;
-    profiles[idx].data_callback = device_config.data_callback;
     memcpy(profiles[idx].remote_bda, bda, 6);
 
     profiles[idx].char_handles = (uint16_t *)malloc(sizeof(uint16_t) * device_config.char_count);

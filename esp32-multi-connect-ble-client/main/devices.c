@@ -21,7 +21,7 @@ bool add_device(esp_bd_addr_t bda, esp_ble_addr_type_t ble_addr_type, size_t dev
 
     if (is_preference_key(addr_key)) {
     
-        device_t dev;
+        saved_device_t dev;
         bool ret = get_device(idx, &dev);
         if (!ret) {
             ESP_LOGE(DEVICES_TAG, "Can't read existing device at idx %d. Can't override.", idx);
@@ -104,7 +104,7 @@ bool remove_device(size_t idx) {
 
 }
 
-bool get_device(size_t idx, device_t *dev) {
+bool get_device(size_t idx, saved_device_t *dev) {
 
     char addr_key[DEVICE_KEY_SIZE];
     generate_device_key(idx, addr_key, DEVICE_BLE_ADDR_KEY);
@@ -146,7 +146,7 @@ bool get_device(size_t idx, device_t *dev) {
 
 void connect_device(size_t idx) {
 
-    device_t dev;
+    saved_device_t dev;
     bool ret = get_device(idx, &dev);
 
     if (!ret) {
@@ -174,7 +174,7 @@ void connect_all_devices() {
 
 bool update_device_bda(size_t idx, esp_bd_addr_t bda) {
     
-        device_t dev;
+        saved_device_t dev;
         bool ret = get_device(idx, &dev);
         if (!ret) {
             return false;

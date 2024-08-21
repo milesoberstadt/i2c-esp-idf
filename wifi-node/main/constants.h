@@ -34,8 +34,6 @@
 #endif
 
 
-#define EXAMPLE_MAX_CHAR_SIZE    64
-
 #define sd_TAG "sd_card"
 
 #define MOUNT_POINT "/sdcard"
@@ -47,9 +45,15 @@
 
 #define I2C_SLAVE_SCL_IO           9
 #define I2C_SLAVE_SDA_IO           8
-#define I2C_SLAVE_NUM              I2C_NUM_1
+#define I2C_PORT_NUM               I2C_NUM_1
 #define I2C_SLAVE_ADDR             0x28
-#define I2C_SLAVE_TX_BUF_LEN       (2 * 512)
-#define I2C_SLAVE_RX_BUF_LEN       (2 * 512)
+
+#define I2C_DATA_LEN 32 
+
+#define LOG_I2C_MESSAGES 1
+
+#define SCREEN_REFRESH_RATE 1 //Hz
+
+#define DEVICES_COUNT 8
 
 #endif // __CONSTANTS_H__
