@@ -113,3 +113,12 @@ The battery level is calculated using the voltage divider method. The battery le
 #### `a-node.ino`
 
 The A-Node specific code is in this file. The `RS-FXJT-N01` Wind direction transmitter and the `RS-FSJT-N01` Wind speed transmitter are read using RS485 communication. They wait for a specific frame to be sent to start sending the data.
+
+## Authors
+
+- [**jansumsky**](https://github.com/jansumsky): project manager, hardware decisions
+- **Tomas Baca**: hardware conception
+- [**franckg28**](https://github.com/FranckG28): software developer & hardware testing
+- [**max1lock**](https://github.com/max1lock): S-Node, researches and trials on i2c and wifi.
+- [**leHofficiel**](https://github.com/leHofficiel): researches
+- [**alxandre-r**](https://github.com/alxandre-r): researches

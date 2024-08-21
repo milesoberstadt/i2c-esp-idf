@@ -9,7 +9,7 @@
 
 // led pins start from here
 #define LED_PIN GPIO_NUM_10
-// to LED_PIN + MAX_DEVICES
+// to LED_PIN + MAX_DEVICES-1
 
 // enable components logging
 #define LOG_LED 0
@@ -22,9 +22,6 @@
 #define SELECT_NEXT_BUTTON_PIN GPIO_NUM_4
 #define SCREEN_BUTTON_PIN GPIO_NUM_1
 #define BUTTON_DEBOUNCE_TIME 50 // ms
-
-/* Display */
-#define DISPLAY_WAKEUP_PIN GPIO_NUM_18
 
 /* Storage*/
 #define PREFERENCES_PARTITION "MCBC"

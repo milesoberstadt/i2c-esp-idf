@@ -70,3 +70,12 @@ We use a esp32-s3 for his Wifi capabilities, and his low power consumption.
 The Main-Node is sending data to this node through i2c.
 
 The Wifi-Node is programmed using ESP-IDF The source code can be found in the [wifi-node](./wifi-node) folder.
+
+## Authors
+
+- [**jansumsky**](https://github.com/jansumsky): project manager, hardware decisions
+- **Tomas Baca**: hardware conception
+- [**franckg28**](https://github.com/FranckG28): software developer & hardware testing
+- [**max1lock**](https://github.com/max1lock): S-Node, researches and trials on i2c and wifi.
+- [**leHofficiel**](https://github.com/leHofficiel): researches
+- [**alxandre-r**](https://github.com/alxandre-r): researches
