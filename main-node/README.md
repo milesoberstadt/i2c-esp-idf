@@ -182,7 +182,7 @@ See the [Getting Started Guide](https://idf.espressif.com/) for full steps to co
 
 ## Understanding the Code
 
-...
+See the [`WALKTHROUGH.md`](./WALKTHROUGH.md) file for a detailed explanation of the code.
 
 ## Authors
 
