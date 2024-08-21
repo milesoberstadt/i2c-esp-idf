@@ -9,6 +9,9 @@
 #include "esp_err.h"
 #include "esp_log.h"
 
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
 #include "constants.h"
 
 #define I2C_TAG "I2C_Master"

@@ -9,7 +9,7 @@ typedef struct {
     esp_bd_addr_t bda;
     esp_ble_addr_type_t ble_addr_type;
     size_t device_type;
-} device_t;
+} saved_device_t;
 
 typedef void (*button_callback)(void);
 
@@ -27,13 +27,10 @@ typedef struct {
     bool is_pressed;
 } button_state_t;
 
-typedef void (*data_callback_t)(size_t device_idx, size_t char_idx, uint8_t *value, uint16_t value_len);
-
 typedef struct {
     esp_bt_uuid_t service_uuid;
     size_t char_count;
     esp_bt_uuid_t *char_uuids;
-    data_callback_t data_callback;
 } device_type_config_t;
 
 typedef struct {
@@ -52,7 +49,6 @@ typedef struct {
     bool discovered;
     uint8_t subscribe_count;
     uint16_t *char_handles;
-    data_callback_t data_callback;
 } gattc_profile_inst;
 
 typedef enum device_state_t {
@@ -75,6 +71,8 @@ typedef enum message_t {
     msg_dev_error = 0x14,
     msg_dev_battery_level = 0x15,
     msg_screen_toggle = 0x50,
+    msg_req_dev = 0x60,
+    msg_res_dev = 0x61,
 } message_t;
 
 typedef enum preference_t {

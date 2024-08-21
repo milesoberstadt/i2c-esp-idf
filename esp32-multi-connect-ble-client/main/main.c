@@ -9,6 +9,7 @@
 #include "ui.h"
 #include "ble.h"
 #include "i2c_master.h"
+#include "cache.h"
 
 #define MAIN_TAG "ESP32_MULTI_CONNECT_BLE_CLIENT"
 
@@ -46,6 +47,8 @@ void app_main(void)
         ESP_LOGE(MAIN_TAG, "Failed to initialize UI");
         return;
     }
+
+    init_cache();
 
     ret = i2c_init();
     if (!ret) {

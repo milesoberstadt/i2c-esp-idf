@@ -31,11 +31,14 @@ typedef enum message_t {
     msg_dev_error = 0x14,
     msg_dev_battery_level = 0x15,
     msg_screen_toggle = 0x50,
+    msg_req_dev = 0x60,
+    msg_res_dev = 0x61,
 } message_t;
 
 typedef struct device_t {
     device_type_t type;
     device_state_t state;
+    uint8_t battery_level;
     uint8_t* value;
     uint8_t value_size;
 } device_t;

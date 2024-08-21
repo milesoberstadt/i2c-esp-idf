@@ -24,22 +24,22 @@ void device_state_str(device_state_t state, char* str)
     switch (state)
     {
     case dev_state_error:
-        strcpy(str, "Error");
+        strcpy(str, "Error        ");
         break;
     case dev_state_connected:
-        strcpy(str, "Connected");
+        strcpy(str, "Connected    ");
         break;
     case dev_state_pairing:
-        strcpy(str, "Pairing");
+        strcpy(str, "Pairing      ");
         break;
     case dev_state_disconnecting:
         strcpy(str, "Disconnecting");
         break;
     case dev_state_connecting:
-        strcpy(str, "Connecting");
+        strcpy(str, "Connecting   ");
         break;
     default:
-        strcpy(str, "Disconnected");
+        strcpy(str, "Disconnected ");
         break;
     }
 }

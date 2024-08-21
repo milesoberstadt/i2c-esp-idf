@@ -11,7 +11,7 @@ bool i2c_init() {
         .scl_io_num = I2C_MASTER_SCL_IO,
         .sda_io_num = I2C_MASTER_SDA_IO,
         .glitch_ignore_cnt = 7,
-        .flags.enable_internal_pullup = 1
+        .flags.enable_internal_pullup = 1,
     };
     i2c_master_bus_handle_t bus_handle;
 
@@ -31,7 +31,7 @@ bool i2c_init() {
 
 bool i2c_write(uint8_t *data_wr) {
 
-    esp_err_t ret = i2c_master_transmit(dev_handle, data_wr, I2C_DATA_LEN, -1);
+    esp_err_t ret = i2c_master_transmit(dev_handle, data_wr, I2C_DATA_LEN, 100);
 
     if (ret != ESP_OK)
     {

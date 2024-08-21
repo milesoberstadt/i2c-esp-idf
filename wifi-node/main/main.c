@@ -9,6 +9,8 @@
 #include "esp_log.h"
 #include "devices.h"
 
+#define MAIN "main"
+
 void app_main(void)
 {
   // Initialize NVS
@@ -20,14 +22,21 @@ void app_main(void)
   }
   ESP_ERROR_CHECK(ret);
 
-  ESP_LOGI(wifi_TAG, "ESP_WIFI_MODE_STA");
   // wifi_init_sta();
   init_sd();
   init_display();
   i2c_slave_init();
   init_devices();
 
-  display_text(" Ready !", 1, 9);
+  display_text(" Ready !", 9, 1);
   
   i2c_start_receive();
+
+  ESP_LOGI(MAIN, "Initialization complete. Getting devices data...");
+
+  for (int i = 0; i < DEVICES_COUNT; i++)
+  {
+    i2c_send_message(msg_req_dev, i);
+  }
+
 }

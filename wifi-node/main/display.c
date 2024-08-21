@@ -50,22 +50,34 @@ void display_text(char *text, size_t len, size_t line)
 }
 
 void display_device(size_t idx, device_t device) {
-    ssd1306_clear_screen(&dev, false);
 
     char* type = malloc(2+DEV_TYPE_STR_LEN*sizeof(char));
-    type[0] = '0'+idx;
-    type[1] = ':';
-    device_type_str(device.type, type+2);
+    type[0] = ' ';
+    type[1] = '0'+idx;
+    type[2] = ':';
+    device_type_str(device.type, type+3);
     ssd1306_display_text(&dev, 0, type, strlen(type), false);
 
-    char* state = malloc(DEV_STATE_STR_LEN*sizeof(char));
-    device_state_str(device.state, state);
+    char* state = malloc(DEV_STATE_STR_LEN+1*sizeof(char));
+    state[0] = ' ';
+    device_state_str(device.state, state+1);
     ssd1306_display_text(&dev, 1, state, strlen(state), false);
 
-    // char* value = malloc(10*sizeof(char));
-    // sprintf(value, "%d", device.value[0]);
-    // ssd1306_display_text(&dev, 2, value, strlen(value), false);
+    char* battery = malloc(6*sizeof(char));
+    sprintf(battery, " %d%%", device.battery_level);
+    ssd1306_display_text(&dev, 2, battery, strlen(battery), false);
+
+    if (device.value_size > 0) {
+        char* value = (char*)device.value;
+        ssd1306_display_text(&dev, 5, value, device.value_size, false);
+    } else {
+        ssd1306_clear_line(&dev, 5, false);
+    }
 
     ssd1306_show_buffer(&dev);
+
+    free(type);
+    free(state);
+    free(battery);
 
 }

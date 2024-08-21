@@ -16,6 +16,7 @@ void init_devices() {
         devices[i].state = dev_state_disconnected;
         devices[i].value = NULL;
         devices[i].value_size = 0;
+        devices[i].battery_level = 0;
     }
 }
 
@@ -29,6 +30,13 @@ void set_device_type(uint8_t idx, device_type_t type) {
 void set_device_state(uint8_t idx, device_state_t state) {
     if (idx < DEVICES_COUNT) {
         devices[idx].state = state;
+        on_change(idx);
+    }
+}
+
+void set_device_battery_level(uint8_t idx, uint8_t battery_level) {
+    if (idx < DEVICES_COUNT) {
+        devices[idx].battery_level = battery_level;
         on_change(idx);
     }
 }

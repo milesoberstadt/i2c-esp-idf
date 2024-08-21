@@ -18,6 +18,7 @@ void init_devices();
 void set_device_type(uint8_t idx, device_type_t type);
 void set_device_state(uint8_t idx, device_state_t state);
 void set_device_value(uint8_t idx, uint8_t* value, uint8_t value_size);
+void set_device_battery_level(uint8_t idx, uint8_t battery_level);
 
 device_t get_device(uint8_t idx);
 

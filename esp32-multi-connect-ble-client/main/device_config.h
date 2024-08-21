@@ -3,8 +3,9 @@
 
 #include <stdbool.h>
 
+#include "esp_log.h"
+
 #include "constants.h"
-#include "data.h"
 #include "types.h"
 #include "uuid128.h"
 
@@ -109,21 +110,18 @@ static const device_type_config_t M_NODE_CONFIG = {
         .service_uuid = UUID_M_NODE,
         .char_uuids = M_NODE_CHAR_UUIDS,
         .char_count = 2,
-        .data_callback = m_node_cb,
     };
 
 static const device_type_config_t A_NODE_CONFIG = {
         .service_uuid = UUID_A_NODE,
         .char_uuids = A_NODE_CHAR_UUIDS,
         .char_count = 2,
-        .data_callback = a_node_cb,
     };
 
 static const device_type_config_t SLEEPER_CONFIG = {
         .service_uuid = UUID_SLEEPER_NODE,
         .char_uuids = SLEEPER_CHAR_UUIDS,
         .char_count = 1,
-        .data_callback = sleeper_cb,
     };
 
 static const device_type_config_t DEVICE_CONFIGS[] = {
@@ -132,6 +130,12 @@ static const device_type_config_t DEVICE_CONFIGS[] = {
     [DEVICE_SLEEPER] = SLEEPER_CONFIG,
 };
 
+
+typedef struct device_t {
+    device_type_t type;
+    device_state_t state;
+    uint8_t battery_level;
+} device_t;
 
 /* --- Function definitions --- */
 

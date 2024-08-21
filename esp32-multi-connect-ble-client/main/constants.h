@@ -14,6 +14,7 @@
 // enable components logging
 #define LOG_LED 0
 #define LOG_I2C 1
+#define LOG_EVENTS 1
 
 /* Buttons */
 #define PAIR_BUTTON_PIN GPIO_NUM_3

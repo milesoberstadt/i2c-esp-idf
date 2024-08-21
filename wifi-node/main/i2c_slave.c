@@ -17,6 +17,8 @@ static IRAM_ATTR bool i2c_slave_rx_done_callback(i2c_slave_dev_handle_t channel,
 
 void i2c_slave_init() {
 
+    ESP_LOGI(i2c_SLAVE, "Initializing I2C slave");
+
     data_rd = (uint8_t *) malloc(I2C_DATA_LEN);
 
     i2c_slave_config_t i2c_slv_config = {
@@ -37,28 +39,41 @@ void i2c_slave_init() {
     };
     ESP_ERROR_CHECK(i2c_slave_register_event_callbacks(slave_handle, &cbs, s_receive_queue));
 
+    ESP_LOGI(i2c_SLAVE, "I2C slave initialized");
+
 }
 
 void i2c_receive_task(void *pvParameters) {
-    uint8_t data_received[I2C_DATA_LEN];
-    i2c_slave_rx_done_event_data_t rx_data;
-
     while (1) {
         esp_err_t ret = i2c_slave_receive(slave_handle, data_rd, I2C_DATA_LEN);
-
         if (ret != ESP_OK) {
             ESP_LOGE(i2c_SLAVE, "Error receiving data");
             vTaskDelay( pdMS_TO_TICKS( 1000 ));
             continue;
         }
-        
-        xQueueReceive(s_receive_queue, &rx_data, portMAX_DELAY);
-        memcpy(data_received, rx_data.buffer, I2C_DATA_LEN);
+    }
+}
 
-        process_message(data_received, I2C_DATA_LEN);
+void i2c_process_queue_task(void *pvParameters) {
+    i2c_slave_rx_done_event_data_t rx_data;
+    while (1) {
+        if (xQueueReceive(s_receive_queue, &rx_data, portMAX_DELAY) == pdTRUE) {
+            process_message(rx_data.buffer, I2C_DATA_LEN);
+        }
     }
 }
 
 void i2c_start_receive() {
+    ESP_LOGI(i2c_SLAVE, "Starting I2C receive task");
     xTaskCreate(i2c_receive_task, "i2c_receive_task", 4096, NULL, 5, NULL);
+    xTaskCreate(i2c_process_queue_task, "i2c_process_queue_task", 4096, NULL, 5, NULL);
+}
+
+bool i2c_slave_send(uint8_t* data, size_t length) {
+    esp_err_t ret = i2c_slave_transmit(slave_handle, data, length, portMAX_DELAY);
+    if (ret != ESP_OK) {
+        ESP_LOGE(i2c_SLAVE, "Error sending data");
+        return false;
+    }
+    return true;
 }
