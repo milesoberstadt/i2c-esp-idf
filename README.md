@@ -4,9 +4,11 @@ This repository contains the code for a project that aims to measure the sway of
 
 ![Overview](./images/overview.png)
 
-There is 6 main components to this project:
+There is 5 main components to this project:
 
 ## M-Node
+
+<image src="./images/nrf-sensor-server.png" width="350" alt="The XIAO nRF52840 (Sense) on his custom PCB Board">
 
 The M-Node is placed on the tree trunk and branches to measure the sway of the tree and the oscillations of the branches.
 
@@ -16,7 +18,7 @@ The M-Node is powered by a battery pack, and communicate with the Main-Node usin
 
 It can be put to sleep or woken up by the Sleeper-Node when there is no wind to save power.
 
-The M-Node is programmed using the Arduino IDE. The source code can be found in the [nrf-sensor-server](./nrf-sensor-server) folder. The A-Node and M-Node share the same source code. Define `NODE_TYPE` to `M_NODE` to compile the M-Node code.
+The M-Node is programmed using the Arduino IDE. The source code can be found in the [nrf-sensor-server](./nrf-sensor-server) folder. The A-Node, M-Node and S-Node share the same source code. Define `NODE_TYPE` to `M_NODE` to compile the M-Node code.
 
 ## A-Node
 
@@ -24,15 +26,15 @@ The A-Node is placed on the ground and is used to measure the wind speed and dir
 
 We also use a XIAO BLE Sense (nFR52840) for the same reasons as the M-Node.
 
-The A-Node is programmed using the Arduino IDE. The source code can be found in the [nrf-sensor-server](./nrf-sensor-server) folder. The A-Node and M-Node share the same source code. Define `NODE_TYPE` to `A_NODE` to compile the A-Node code.
+The A-Node is programmed using the Arduino IDE. The source code can be found in the [nrf-sensor-server](./nrf-sensor-server) folder. The A-Node, M-Node and S-Node share the same source code. Define `NODE_TYPE` to `A_NODE` to compile the A-Node code.
 
 ## Sleeper-Node
 
-The Sleeper-Node is placed on the tree trunk and is used to wake up the M-Node when there is wind.
+The Sleeper-Node (also known as S-Node) is placed on the tree trunk and is used to wake up the M-Node when there is wind.
 
 His role is to convert the sleep and wake up signal sent by the Main-Node through BLE to a digital signal that can be read by the M-Node. We have to use another microcontroller because the XIAO BLE Sense can't wake up from sleep using BLE.
 
-The Sleeper-Node is a simple XIAO BLE, programmed using the Arduino IDE. The source code can be found in the [sleeper](./nrf-sensor-server) folder.
+The S-Node is programmed using the Arduino IDE. The source code can be found in the [nrf-sensor-server](./nrf-sensor-server) folder. The A-Node, M-Node and S-Node share the same source code. Define `NODE_TYPE` to `S_NODE` to compile the S-Node code.
 
 ## Main-Node
 
@@ -48,24 +50,13 @@ The controls buttons placed on the main board are also connected to the Main-Nod
 
 The Main-Node is programmed using ESP-IDF due to the lack of BLE support in the Arduino ESP32 framework. The source code can be found in the [esp32-multi-connect-ble-client](./esp32-multi-connect-ble-client) folder.
 
-## Display-Node
-
-The Display-Node is placed on the main board, on the ground. It is used to display the data collected by the Main-Node.
-
-We use a esp32-s3 for his Wifi capabilities, and his low power consumption.
-
-The Display-Node is connected through i2c to the Main-Node. It is put to sleep and wake-up by the Main-Node to save power.
-
-The Display-Node is programmed using the Arduino Framework through PlatformIO. The source code can be found in the [T-Display-S3](./T-Display-S3) folder.
-
 ## Wifi-Node
 
-The Wifi-Node is placed on the main board, on the ground. It is used to send the data collected by the Main-Node to the cloud.
-
-It can also write the data to a SD card.
+The Wifi-Node is placed on the main board, on the ground. It is used to send the data collected by the Main-Node to the cloud, or write the data to a SD card.
+It is also the one that control the display.
 
 We use a esp32-s3 for his Wifi capabilities, and his low power consumption.
 
-The Wifi-Node is connected through i2c to the Main-Node.
+The Main-Node is sending data to this node through i2c.
 
 The Wifi-Node is programmed using ESP-IDF The source code can be found in the [wifi-node](./wifi-node) folder.
