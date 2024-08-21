@@ -2,7 +2,7 @@
 
 Look at the main [README.md](../README.md) for an overview of the project to understand the context of this project.
 
-<image src="../images/nrf-sensor-server.png" width="350" alt="The XIAO nRF52840 (Sense) on his custom PCB Board">
+<image src="../images/nodes.png">
 
 Use Arduino IDE to compile and upload the code to the XIAO BLE Sense.
 
@@ -10,7 +10,9 @@ Use Arduino IDE to compile and upload the code to the XIAO BLE Sense.
 
 - [Seeed Studio XIAO nRF52840 (Sense)](https://wiki.seeedstudio.com/XIAO_BLE/)
 - [Custom PCB](measure_board.pdf) (optional)
-  > A-Node only :
+
+> A-Node only :
+
 - [RS485 to TTL](https://techfun.sk/produkt/obojsmerny-prevodnik-ttl-usart-na-rs485/)
 - [RS-FXJT-N01 Wind direction transmitter](https://instrucenter.com/wp-content/uploads/2022/03/RS-FXJT-N01.pdf)
 - [RS-FSJT-N01 Wind speed transmitter](https://instrucenter.com/wp-content/uploads/2022/03/RS-FSJT-No1.pdf)

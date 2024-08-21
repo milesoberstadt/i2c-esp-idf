@@ -8,7 +8,7 @@ There is 5 main components to this project:
 
 ## M-Node
 
-<image src="./images/nrf-sensor-server.png" width="350" alt="The XIAO nRF52840 (Sense) on his custom PCB Board">
+<image src="./images/m-node.png" />
 
 The M-Node is placed on the tree trunk and branches to measure the sway of the tree and the oscillations of the branches.
 
@@ -20,7 +20,11 @@ It can be put to sleep or woken up by the Sleeper-Node when there is no wind to 
 
 The M-Node is programmed using the Arduino IDE. The source code can be found in the [nrf-sensor-server](./nrf-sensor-server) folder. The A-Node, M-Node and S-Node share the same source code. Define `NODE_TYPE` to `M_NODE` to compile the M-Node code.
 
+For more information on how to use the M-Node, see the [nrf-sensor-server/README.md](./nrf-sensor-server/README.md) file.
+
 ## A-Node
+
+<image src="./images/a-node.png" />
 
 The A-Node is placed on the ground and is used to measure the wind speed and direction.
 
@@ -28,13 +32,19 @@ We also use a XIAO BLE Sense (nFR52840) for the same reasons as the M-Node.
 
 The A-Node is programmed using the Arduino IDE. The source code can be found in the [nrf-sensor-server](./nrf-sensor-server) folder. The A-Node, M-Node and S-Node share the same source code. Define `NODE_TYPE` to `A_NODE` to compile the A-Node code.
 
+For more information on how to use the A-Node, see the [nrf-sensor-server/README.md](./nrf-sensor-server/README.md) file.
+
 ## Sleeper-Node
+
+<image src="./images/s-node.png" />
 
 The Sleeper-Node (also known as S-Node) is placed on the tree trunk and is used to wake up the M-Node when there is wind.
 
 His role is to convert the sleep and wake up signal sent by the Main-Node through BLE to a digital signal that can be read by the M-Node. We have to use another microcontroller because the XIAO BLE Sense can't wake up from sleep using BLE.
 
 The S-Node is programmed using the Arduino IDE. The source code can be found in the [nrf-sensor-server](./nrf-sensor-server) folder. The A-Node, M-Node and S-Node share the same source code. Define `NODE_TYPE` to `S_NODE` to compile the S-Node code.
+
+For more information on how to use the S-Node, see the [nrf-sensor-server/README.md](./nrf-sensor-server/README.md) file.
 
 ## Main-Node
 
