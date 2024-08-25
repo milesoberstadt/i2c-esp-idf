@@ -12,11 +12,10 @@ void on_pairing_start(size_t dev_idx) {
     ESP_LOGI(EVENTS_TAG, "Pairing started for device %d", dev_idx);
     #endif
     start_led_blink(dev_idx, -1, 500);
-    set_cache_device_state(dev_idx, dev_state_pairing);
-    i2c_send_message_data(  msg_dev_state,
-                            dev_idx,  
-                            (uint8_t *)dev_state_pairing, 
-                            sizeof(device_state_t));
+    device_state_t state = dev_state_pairing;
+    set_cache_device_state(dev_idx, state);
+    uint8_t state_value = (uint8_t)state; // Convert enum value to uint8_t
+    i2c_send_message_data(msg_dev_state, dev_idx, &state_value, sizeof(uint8_t));
 }
 
 void on_pariring_stop(size_t dev_idx) {
@@ -24,11 +23,10 @@ void on_pariring_stop(size_t dev_idx) {
     ESP_LOGI(EVENTS_TAG, "Pairing stopped for device %d", dev_idx);
     #endif
     stop_led_blink(dev_idx);
-    set_cache_device_state(dev_idx, dev_state_disconnected);
-    i2c_send_message_data(  msg_dev_state, 
-                            dev_idx, 
-                            (uint8_t *)dev_state_disconnected, 
-                            sizeof(device_state_t));
+    device_state_t state = dev_state_disconnected;
+    set_cache_device_state(dev_idx, state);
+    uint8_t state_value = (uint8_t)state; // Convert enum value to uint8_t
+    i2c_send_message_data(msg_dev_state, dev_idx, &state_value, sizeof(uint8_t));
 }
 
 void on_device_selected(size_t dev_idx) {
