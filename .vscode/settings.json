@@ -1,0 +1,7 @@
+{
+  "files.associations": {
+    "events.h": "c",
+    "types.h": "c",
+    "uuid128.h": "c"
+  }
+}

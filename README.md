@@ -48,6 +48,8 @@ For more information on how to use the S-Node, see the [nrf-sensor-server/README
 
 ## Main-Node
 
+<image src="./images/main-node.png" />
+
 The Main-Node is placed on the main board, on the ground. It is used to collect the data from the M-Node and A-Node. This is the central node of the network.
 
 We use a esp32-s3 for his BLE and Wifi capabilities, and his low power consumption.
@@ -58,9 +60,11 @@ To be able to monitor and the system, the Main-Node also send his data to the Di
 
 The controls buttons placed on the main board are also connected to the Main-Node.
 
-The Main-Node is programmed using ESP-IDF due to the lack of BLE support in the Arduino ESP32 framework. The source code can be found in the [esp32-multi-connect-ble-client](./esp32-multi-connect-ble-client) folder.
+The Main-Node is programmed using ESP-IDF due to the lack of BLE support in the Arduino ESP32 framework. The source code can be found in the [main-node](./main-node/README.md) folder.
 
 ## Wifi-Node
+
+<image src="./images/wifi-node.png" />
 
 The Wifi-Node is placed on the main board, on the ground. It is used to send the data collected by the Main-Node to the cloud, or write the data to a SD card.
 It is also the one that control the display.
@@ -69,7 +73,7 @@ We use a esp32-s3 for his Wifi capabilities, and his low power consumption.
 
 The Main-Node is sending data to this node through i2c.
 
-The Wifi-Node is programmed using ESP-IDF The source code can be found in the [wifi-node](./wifi-node) folder.
+The Wifi-Node is programmed using ESP-IDF The source code can be found in the [wifi-node](./wifi-node/README.md) folder.
 
 ## Authors
 

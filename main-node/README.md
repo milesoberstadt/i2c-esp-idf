@@ -2,7 +2,7 @@
 
 This project is the Main-Node of the [Tree Monitoring System](../README.md).
 
-> Illustration goes here
+<image src="../images/main-node.png">
 
 The Main-Node is placed on the main board, on the ground. It is used to collect the data from the M-Node and A-Node, and to send sleep/wakeup signal to S-Node. This is the central node of the network.
 

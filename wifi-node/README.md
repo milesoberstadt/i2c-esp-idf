@@ -1,53 +1,98 @@
-| Supported Targets | ESP32 | ESP32-C2 | ESP32-C3 | ESP32-C6 | ESP32-H2 | ESP32-P4 | ESP32-S2 | ESP32-S3 | Linux |
-| ----------------- | ----- | -------- | -------- | -------- | -------- | -------- | -------- | -------- | ----- |
+# Wifi node
 
-# Hello World Example
+Look at the main [README.md](../README.md) for an overview of the project to understand the context of this project.
 
-Starts a FreeRTOS task to print "Hello World".
+<image src="../images/wifi-node.png">
 
-(See the README.md file in the upper level 'examples' directory for more information about examples.)
+The Wifi-Node is placed on the main board, on the ground. It is used to send the data collected by the Main-Node to the cloud, or write the data to a SD card.
+It is also the one that control the display.
 
-## How to use example
+We use a esp32-s3 for his Wifi capabilities, and his low power consumption.
 
-Follow detailed instructions provided specifically for this example.
+This node is meant to be used together with the [Main node](../main-node/README.md).
 
-Select the instructions depending on Espressif chip installed on your development board:
+## Features
 
-- [ESP32 Getting Started Guide](https://docs.espressif.com/projects/esp-idf/en/stable/get-started/index.html)
-- [ESP32-S2 Getting Started Guide](https://docs.espressif.com/projects/esp-idf/en/latest/esp32s2/get-started/index.html)
+- 🛜 Connect to a Wifi AP
+- 💾 Write to SD card
+- 🖥️ Display selected device info on the screen
+- 📡 Listening to i2c messages
 
+## Requirements
 
-## Example folder contents
+### Hardware used
 
-The project **hello_world** contains one source file in C language [hello_world_main.c](main/hello_world_main.c). The file is located in folder [main](main).
+- [ESP32-S3](https://www.espressif.com/en/products/socs/esp32-s3)
+- Another microcontroller that send data through i2c
+- [SDD1306 OLED display](https://www.adafruit.com/product/938)
+- [SD card module](https://www.adafruit.com/product/254)
 
-ESP-IDF projects are built using CMake. The project build configuration is contained in `CMakeLists.txt` files that provide set of directives and instructions describing the project's source files and targets (executable, library, or both).
+### Software used
 
-Below is short explanation of remaining files in the project folder.
+- [ESP-IDF 5.3](https://docs.espressif.com/projects/esp-idf/en/v5.3/esp32s3/index.html)
 
+## How to Use
+
+Before compiling the code, you need to configure the Wifi-Node using `idf.py menuconfig`.
+
+```bash
+idf.py menuconfig
 ```
-├── CMakeLists.txt
-├── pytest_hello_world.py      Python script used for automated testing
-├── main
-│   ├── CMakeLists.txt
-│   └── hello_world_main.c
-└── README.md                  This is the file you are currently reading
+
+In the `Example Configuration` menu, you can set the Wifi SSID and password.
+
+On startup, the Wifi-Node will automatically try to connect access point defined in menuconfig.
+
+The Wifi-Node will also listen to i2c messages from the Main-Node to display the data on the screen.
+
+This node can't be used alone, it needs to be used with the Main-Node.
+
+## Configuration
+
+### General configuration
+
+The following configuration can be changed in the [`wifi-node/main/constants.h`](./main/constants.h) file.
+
+```c
+#define PIN_NUM_MISO  13
+#define PIN_NUM_MOSI  11
+#define PIN_NUM_CLK   12
+#define PIN_NUM_CS    10
+
+#define I2C_SLAVE_SCL_IO           9
+#define I2C_SLAVE_SDA_IO           8
+#define I2C_PORT_NUM               I2C_NUM_1
+#define I2C_SLAVE_ADDR             0x28
+
+#define I2C_DATA_LEN 32
+
+#define LOG_I2C_MESSAGES 1
+
+#define DEVICES_COUNT 8
 ```
 
-For more information on structure and contents of ESP-IDF projects, please refer to Section [Build System](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/build-system.html) of the ESP-IDF Programming Guide.
+## Development
 
-## Troubleshooting
+Before project configuration and build, be sure to set the correct chip target using:
 
-* Program upload failure
+```bash
+idf.py set-target <chip_name>
+```
 
-    * Hardware connection is not correct: run `idf.py -p PORT monitor`, and reboot your board to see if there are any output logs.
-    * The baud rate for downloading is too high: lower your baud rate in the `menuconfig` menu, and try again.
+#### Build and Flash
 
-## Technical support and feedback
+Run `idf.py -p PORT flash monitor` to build, flash and monitor the project.
 
-Please use the following feedback channels:
+(To exit the serial monitor, type `Ctrl-]`.)
 
-* For technical queries, go to the [esp32.com](https://esp32.com/) forum
-* For a feature request or bug report, create a [GitHub issue](https://github.com/espressif/esp-idf/issues)
+See the [Getting Started Guide](https://idf.espressif.com/) for full steps to configure and use ESP-IDF to build projects.
 
-We will get back to you as soon as possible.
+## Credits
+
+- [**jansumsky**](https://github.com/jansumsky): project manager, hardware decisions
+- **Tomas Baca**: hardware conception
+- [**franckg28**](https://github.com/FranckG28): software developer & hardware testing
+- [**max1lock**](https://github.com/max1lock): S-Node, researches and trials on i2c and wifi.
+- [**leHofficiel**](https://github.com/leHofficiel): researches
+- [**alxandre-r**](https://github.com/alxandre-r): researches
+- [**nopnop2002**](https://github.com/nopnop2002/esp-idf-ssd1306): esp-idf-ssd1306 library

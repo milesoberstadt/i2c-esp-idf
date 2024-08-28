@@ -52,8 +52,6 @@
 
 #define LOG_I2C_MESSAGES 1
 
-#define SCREEN_REFRESH_RATE 1 //Hz
-
 #define DEVICES_COUNT 8
 
 #endif // __CONSTANTS_H__
