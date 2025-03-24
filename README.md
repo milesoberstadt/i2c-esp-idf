@@ -1,85 +1,66 @@
-# Measuring tree sway
+# WiFi Scanner with GPS Triangulation
 
-This repository contains the code for a project that aims to measure the sway of trees using a network of sensors.
+This project implements a distributed WiFi scanning system capable of detecting access points and capturing WiFi traffic across multiple channels simultaneously. The system is designed for wireless network mapping, triangulation, and passive monitoring.
 
-![Overview](./images/overview.png)
+## System Architecture
 
-There is 5 main components to this project:
+The system consists of two types of nodes:
 
-## M-Node
+### DOM Node (Dominant)
+- Central coordinator that manages all SUB nodes
+- Collects data from SUBs via I2C
+- Assigns WiFi channels to SUBs
+- Synchronizes timestamps across the system
+- Stores and processes collected data
 
-<image src="./images/m-node.png" />
+### SUB Nodes (Subordinate)
+- WiFi scanners that operate in promiscuous mode
+- Each SUB is assigned a specific WiFi channel
+- Detect and capture WiFi access points and traffic
+- Store data locally and sync with the DOM node
+- Automatically discovered and configured by DOM
 
-The M-Node is placed on the tree trunk and branches to measure the sway of the tree and the oscillations of the branches.
+## Features
 
-We choosed to use a XIAO BLE Sense (nFR52840) for his very low power consumption, BLE capabilities, tiny form factor and built-in sensors (accelerometer and gyroscope).
+- **Multi-Channel Scanning**: Simultaneously scan all WiFi channels (1-11)
+- **Access Point Detection**: Discover and record WiFi networks
+- **EAPOL Packet Capture**: Capture authentication handshakes (planned)
+- **Automatic Discovery**: SUBs are automatically detected and configured
+- **I2C Communication**: Efficient data transfer between nodes
+- **Timestamp Synchronization**: Coordinated timing across all nodes
 
-The M-Node is powered by a battery pack, and communicate with the Main-Node using BLE.
+## Hardware Requirements
 
-It can be put to sleep or woken up by the Sleeper-Node when there is no wind to save power.
+- ESP32 development boards (1 DOM node, multiple SUB nodes)
+- I2C connections between DOM and SUBs (SDA: GPIO 8, SCL: GPIO 9)
+- (Planned) GPS module for DOM node
+- (Planned) SD card for data storage
 
-The M-Node is programmed using the Arduino IDE. The source code can be found in the [nrf-sensor-server](./nrf-sensor-server) folder. The A-Node, M-Node and S-Node share the same source code. Define `NODE_TYPE` to `M_NODE` to compile the M-Node code.
+## Building and Flashing
 
-For more information on how to use the M-Node, see the [nrf-sensor-server/README.md](./nrf-sensor-server/README.md) file.
+### DOM Node
+```bash
+cd dom
+idf.py build
+idf.py -p PORT flash monitor
+```
 
-## A-Node
+### SUB Nodes
+```bash
+cd sub
+idf.py build
+idf.py -p PORT flash monitor
+```
 
-<image src="./images/a-node.png" />
+## Project Structure
 
-The A-Node is placed on the ground and is used to measure the wind speed and direction.
+- `/dom` - ESP-IDF project for the DOM node
+- `/sub` - ESP-IDF project for the SUB nodes
 
-We also use a XIAO BLE Sense (nFR52840) for the same reasons as the M-Node.
+## Future Enhancements
 
-The A-Node is programmed using the Arduino IDE. The source code can be found in the [nrf-sensor-server](./nrf-sensor-server) folder. The A-Node, M-Node and S-Node share the same source code. Define `NODE_TYPE` to `A_NODE` to compile the A-Node code.
-
-For more information on how to use the A-Node, see the [nrf-sensor-server/README.md](./nrf-sensor-server/README.md) file.
-
-## Sleeper-Node
-
-<image src="./images/s-node.png" />
-
-The Sleeper-Node (also known as S-Node) is placed on the tree trunk and is used to wake up the M-Node when there is wind.
-
-His role is to convert the sleep and wake up signal sent by the Main-Node through BLE to a digital signal that can be read by the M-Node. We have to use another microcontroller because the XIAO BLE Sense can't wake up from sleep using BLE.
-
-The S-Node is programmed using the Arduino IDE. The source code can be found in the [nrf-sensor-server](./nrf-sensor-server) folder. The A-Node, M-Node and S-Node share the same source code. Define `NODE_TYPE` to `S_NODE` to compile the S-Node code.
-
-For more information on how to use the S-Node, see the [nrf-sensor-server/README.md](./nrf-sensor-server/README.md) file.
-
-## Main-Node
-
-<image src="./images/main-node.png" />
-
-The Main-Node is placed on the main board, on the ground. It is used to collect the data from the M-Node and A-Node. This is the central node of the network.
-
-We use a esp32-s3 for his BLE and Wifi capabilities, and his low power consumption.
-
-The Main-Node is connected through BLE to the M-Node and A-Node, and send the data to the Display-Node through Wifi. It also send the sleep and wake up signal to the Sleeper-Node.
-
-To be able to monitor and the system, the Main-Node also send his data to the Display-Node through i2c.
-
-The controls buttons placed on the main board are also connected to the Main-Node.
-
-The Main-Node is programmed using ESP-IDF due to the lack of BLE support in the Arduino ESP32 framework. The source code can be found in the [main-node](./main-node/README.md) folder.
-
-## Wifi-Node
-
-<image src="./images/wifi-node.png" />
-
-The Wifi-Node is placed on the main board, on the ground. It is used to send the data collected by the Main-Node to the cloud, or write the data to a SD card.
-It is also the one that control the display.
-
-We use a esp32-s3 for his Wifi capabilities, and his low power consumption.
-
-The Main-Node is sending data to this node through i2c.
-
-The Wifi-Node is programmed using ESP-IDF The source code can be found in the [wifi-node](./wifi-node/README.md) folder.
-
-## Authors
-
-- [**jansumsky**](https://github.com/jansumsky): project manager, hardware decisions
-- **Tomas Baca**: hardware conception
-- [**franckg28**](https://github.com/FranckG28): software developer & hardware testing
-- [**max1lock**](https://github.com/max1lock): S-Node, researches and trials on i2c and wifi.
-- [**leHofficiel**](https://github.com/leHofficiel): researches
-- [**alxandre-r**](https://github.com/alxandre-r): researches
+- GPS module integration for location tracking
+- SD card support for extended data logging
+- Full EAPOL packet capture and analysis
+- Web interface for system monitoring and control
+- Triangulation based on signal strength from multiple SUBs
