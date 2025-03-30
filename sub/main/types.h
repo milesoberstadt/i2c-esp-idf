@@ -11,6 +11,8 @@ typedef enum message_t {
     msg_data = 0x10,
     msg_req_data = 0x20,
     msg_res_data = 0x21,
+    msg_req_identifier = 0x30,
+    msg_res_identifier = 0x31,
 } message_t;
 
 #endif // __TYPES_H__

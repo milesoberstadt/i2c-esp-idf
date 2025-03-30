@@ -1,8 +1,13 @@
 #include "i2c_slave.h"
+#include "esp_random.h"
 
 i2c_slave_dev_handle_t slave_handle;
 QueueHandle_t s_receive_queue;
 uint8_t *data_rd;
+
+// Define the global variables
+uint8_t i2c_slave_addr;     // Dynamic I2C slave address
+uint16_t device_identifier; // Random device identifier
 
 static IRAM_ATTR bool i2c_slave_rx_done_callback(i2c_slave_dev_handle_t channel, const i2c_slave_rx_done_event_data_t *edata, void *user_data)
 {
@@ -15,6 +20,15 @@ static IRAM_ATTR bool i2c_slave_rx_done_callback(i2c_slave_dev_handle_t channel,
 void i2c_slave_init() {
     ESP_LOGI(I2C_SLAVE_TAG, "Initializing I2C slave");
     
+    // Generate random I2C slave address between MIN and MAX (inclusive)
+    i2c_slave_addr = (esp_random() % (I2C_SLAVE_ADDR_MAX - I2C_SLAVE_ADDR_MIN + 1)) + I2C_SLAVE_ADDR_MIN;
+    
+    // Generate random 2-digit hex identifier (0x00 - 0xFF)
+    device_identifier = esp_random() % 0x100;
+    
+    ESP_LOGI(I2C_SLAVE_TAG, "Generated random device ID: 0x%02X", device_identifier);
+    ESP_LOGI(I2C_SLAVE_TAG, "Using I2C slave address: 0x%02X", i2c_slave_addr);
+    
     data_rd = (uint8_t *) malloc(I2C_DATA_LEN);
     if (data_rd == NULL) {
         ESP_LOGE(I2C_SLAVE_TAG, "Failed to allocate memory for receive buffer");
@@ -24,11 +38,11 @@ void i2c_slave_init() {
     i2c_slave_config_t i2c_slv_config = {
         .addr_bit_len = I2C_ADDR_BIT_LEN_7,
         .clk_source = I2C_CLK_SRC_DEFAULT,
-        .i2c_port = I2C_NUM_0,  // Changed from I2C_PORT_NUM to I2C_NUM_0
+        .i2c_port = I2C_NUM_0,
         .send_buf_depth = 256,
         .scl_io_num = I2C_SLAVE_SCL_IO,
         .sda_io_num = I2C_SLAVE_SDA_IO,
-        .slave_addr = I2C_SLAVE_ADDR,
+        .slave_addr = i2c_slave_addr,  // Use the random address
     };
 
     esp_err_t ret = i2c_new_slave_device(&i2c_slv_config, &slave_handle);
