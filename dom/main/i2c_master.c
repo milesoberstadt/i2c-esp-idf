@@ -1,86 +1,58 @@
 #include "i2c_master.h"
-#include <string.h>
-#include "esp_log.h"
-#include "driver/i2c.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
-static const char *TAG = "i2c_master";
-
-// I2C pins
-#define I2C_SDA_PIN 21
-#define I2C_SCL_PIN 22
-#define I2C_PORT I2C_NUM_0
-#define I2C_FREQ_HZ 100000  // 100kHz
-
-// I2C timeouts
-#define I2C_TIMEOUT_MS 100
+static const char *TAG = I2C_MASTER_TAG;
+static i2c_master_bus_handle_t bus_handle;
+static i2c_master_dev_handle_t dev_handle;
 
 esp_err_t i2c_master_init(void) {
-    ESP_LOGI(TAG, "Initializing I2C master");
+    ESP_LOGI(TAG, "Initializing I2C master with the new driver API");
+    ESP_LOGI(TAG, "I2C pins: SCL=%d, SDA=%d", I2C_MASTER_SCL_IO, I2C_MASTER_SDA_IO);
+    ESP_LOGI(TAG, "I2C frequency: %d Hz", I2C_MASTER_FREQ_HZ);
     
-    // I2C configuration
-    i2c_config_t i2c_config = {
-        .mode = I2C_MODE_MASTER,
-        .sda_io_num = I2C_SDA_PIN,
-        .scl_io_num = I2C_SCL_PIN,
-        .sda_pullup_en = GPIO_PULLUP_ENABLE,
-        .scl_pullup_en = GPIO_PULLUP_ENABLE,
-        .master.clk_speed = I2C_FREQ_HZ
+    // Configure I2C master bus
+    i2c_master_bus_config_t bus_config = {
+        .clk_source = I2C_CLK_SRC_DEFAULT,
+        .i2c_port = I2C_MASTER_PORT,
+        .scl_io_num = I2C_MASTER_SCL_IO,
+        .sda_io_num = I2C_MASTER_SDA_IO,
+        .glitch_ignore_cnt = 7,
+        .flags.enable_internal_pullup = true,
     };
     
-    // Initialize I2C driver
-    ESP_ERROR_CHECK(i2c_param_config(I2C_PORT, &i2c_config));
-    ESP_ERROR_CHECK(i2c_driver_install(I2C_PORT, I2C_MODE_MASTER, 0, 0, 0));
-    
-    ESP_LOGI(TAG, "I2C master initialized");
-    return ESP_OK;
-}
-
-esp_err_t i2c_master_scan(uint8_t start_addr, uint8_t end_addr, uint8_t *found_addrs, uint8_t *num_found) {
-    if (!found_addrs || !num_found || start_addr > end_addr) {
-        return ESP_ERR_INVALID_ARG;
+    // Create I2C master bus
+    esp_err_t ret = i2c_new_master_bus(&bus_config, &bus_handle);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to create I2C master bus: %s", esp_err_to_name(ret));
+        return ret;
     }
     
-    *num_found = 0;
+    // Configure I2C device
+    i2c_device_config_t dev_config = {
+        .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+        .device_address = I2C_FIXED_SUB_ADDR,
+        .scl_speed_hz = I2C_MASTER_FREQ_HZ,
+        // Note: ESP-IDF v5.4 doesn't support timeout in i2c_device_config_t
+    };
     
-    ESP_LOGI(TAG, "Starting I2C scan from address 0x%02X to 0x%02X", start_addr, end_addr);
-    
-    for (uint8_t addr = start_addr; addr <= end_addr && *num_found < 255; addr++) {
-        ESP_LOGD(TAG, "Probing I2C address 0x%02X (%u)", addr, addr);
-        
-        i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-        i2c_master_start(cmd);
-        i2c_master_write_byte(cmd, (addr << 1) | I2C_MASTER_WRITE, true);
-        i2c_master_stop(cmd);
-        
-        esp_err_t ret = i2c_master_cmd_begin(I2C_PORT, cmd, pdMS_TO_TICKS(I2C_TIMEOUT_MS));
-        i2c_cmd_link_delete(cmd);
-        
-        if (ret == ESP_OK) {
-            ESP_LOGI(TAG, "Found I2C device at address 0x%02X", addr);
-            found_addrs[(*num_found)++] = addr;
-        } else {
-            ESP_LOGD(TAG, "No device at address 0x%02X, error: %s", addr, esp_err_to_name(ret));
-        }
+    // Add device to the bus
+    ret = i2c_master_bus_add_device(bus_handle, &dev_config, &dev_handle);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to add I2C device: %s", esp_err_to_name(ret));
+        i2c_del_master_bus(bus_handle);
+        return ret;
     }
     
-    ESP_LOGI(TAG, "I2C scan complete: found %u devices in range 0x%02X-0x%02X", 
-             *num_found, start_addr, end_addr);
-    
-    // Log found devices
-    if (*num_found > 0) {
-        ESP_LOGI(TAG, "Found devices at addresses:");
-        for (uint8_t i = 0; i < *num_found; i++) {
-            ESP_LOGI(TAG, "  - 0x%02X (%u)", found_addrs[i], found_addrs[i]);
-        }
-    }
-    
+    ESP_LOGI(TAG, "I2C master initialized successfully");
+    ESP_LOGI(TAG, "Fixed SUB address: 0x%02X", I2C_FIXED_SUB_ADDR);
     return ESP_OK;
 }
 
 esp_err_t i2c_master_send(uint8_t addr, message_type_t msg_type, uint8_t sub_id, const uint8_t *data, uint8_t data_len) {
-    if (data_len > (I2C_DATA_LEN - sizeof(message_header_t))) {
+    if (data_len > I2C_MESSAGE_DATA_LEN) {
         ESP_LOGE(TAG, "Data too large for I2C message (%u > %u)", 
-                 data_len, I2C_DATA_LEN - sizeof(message_header_t));
+                 data_len, I2C_MESSAGE_DATA_LEN);
         return ESP_ERR_INVALID_ARG;
     }
     
@@ -89,83 +61,90 @@ esp_err_t i2c_master_send(uint8_t addr, message_type_t msg_type, uint8_t sub_id,
     memset(buffer, 0xFF, sizeof(buffer)); // Fill with 0xFF (unused marker)
     
     // Set up message header
-    message_header_t *header = (message_header_t *)buffer;
-    header->msg_type = msg_type;
-    header->sub_id = sub_id;
-    header->data_len = data_len;
+    buffer[0] = (uint8_t)msg_type;   // Message type
+    buffer[1] = sub_id;              // SUB ID
+    buffer[2] = data_len;            // Data length
     
     // Copy data if provided
     if (data != NULL && data_len > 0) {
-        memcpy(buffer + sizeof(message_header_t), data, data_len);
+        memcpy(buffer + I2C_HEADER_LEN, data, data_len);
     }
     
-    // Create I2C command
-    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, (addr << 1) | I2C_MASTER_WRITE, true);
-    i2c_master_write(cmd, buffer, sizeof(buffer), true);
-    i2c_master_stop(cmd);
+    ESP_LOGI(TAG, "Sending I2C message: type=0x%02X, sub_id=0x%02X, data_len=%u to addr=0x%02X",
+             msg_type, sub_id, data_len, addr);
     
-    // Execute command
-    esp_err_t ret = i2c_master_cmd_begin(I2C_PORT, cmd, pdMS_TO_TICKS(I2C_TIMEOUT_MS));
-    i2c_cmd_link_delete(cmd);
+    // Try multiple times
+    int retries = 3;
+    esp_err_t ret;
     
-    if (ret != ESP_OK) {
-        ESP_LOGW(TAG, "Failed to send I2C message to 0x%02X: %s", 
-                 addr, esp_err_to_name(ret));
-    } else {
-        ESP_LOGD(TAG, "Sent message type 0x%02X to 0x%02X", msg_type, addr);
-    }
-    
-    return ret;
-}
-
-esp_err_t i2c_master_read_msg(uint8_t addr, i2c_message_t *response) {
-    if (!response) {
-        return ESP_ERR_INVALID_ARG;
-    }
-    
-    ESP_LOGI(TAG, "Preparing to read message from I2C device at address 0x%02X", addr);
-    
-    // Clear response buffer to help with debugging
-    memset(response, 0, sizeof(i2c_message_t));
-    
-    // Create I2C command
-    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, (addr << 1) | I2C_MASTER_READ, true);
-    
-    // Read the whole message
-    i2c_master_read(cmd, (uint8_t *)response, sizeof(i2c_message_t), I2C_MASTER_LAST_NACK);
-    i2c_master_stop(cmd);
-    
-    // Execute command with increased timeout (200ms instead of 100ms)
-    esp_err_t ret = i2c_master_cmd_begin(I2C_PORT, cmd, pdMS_TO_TICKS(200));
-    i2c_cmd_link_delete(cmd);
-    
-    if (ret != ESP_OK) {
-        ESP_LOGW(TAG, "Failed to read I2C response from 0x%02X: %s",
-                 addr, esp_err_to_name(ret));
-    } else {
-        // Dump first few bytes to help debug
-        ESP_LOGI(TAG, "Read from 0x%02X - Header: type=0x%02X, sub_id=0x%02X, data_len=%u",
-                 addr, response->header.msg_type, response->header.sub_id, response->header.data_len);
+    while (retries-- > 0) {
+        // Transmit data to the SUB
+        ret = i2c_master_transmit(dev_handle, buffer, I2C_DATA_LEN, I2C_MASTER_TIMEOUT_MS);
         
-        // Log first few bytes of data for debugging
-        if (response->header.data_len > 0) {
-            ESP_LOGI(TAG, "Data[0..3]: 0x%02X 0x%02X 0x%02X 0x%02X...",
-                   response->data[0], 
-                   response->header.data_len > 1 ? response->data[1] : 0,
-                   response->header.data_len > 2 ? response->data[2] : 0,
-                   response->header.data_len > 3 ? response->data[3] : 0);
+        if (ret == ESP_OK) {
+            ESP_LOGI(TAG, "Successfully sent message type 0x%02X to 0x%02X", msg_type, addr);
+            return ESP_OK;
+        } else {
+            ESP_LOGW(TAG, "Failed to send I2C message to 0x%02X (retry %d): %s", 
+                     addr, 2-retries, esp_err_to_name(ret));
+            vTaskDelay(pdMS_TO_TICKS(100)); // Short delay before retry
         }
     }
     
     return ret;
 }
 
+esp_err_t i2c_master_read(uint8_t addr, i2c_message_t *response) {
+    if (!response) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    
+    ESP_LOGI(TAG, "Reading message from I2C device at address 0x%02X", addr);
+    
+    // Clear response buffer to help with debugging
+    memset(response, 0, sizeof(i2c_message_t));
+    
+    // Try multiple times
+    int retries = 3;
+    esp_err_t ret;
+    
+    while (retries-- > 0) {
+        // Read data from the SUB
+        ret = i2c_master_receive(dev_handle, (uint8_t *)response, sizeof(i2c_message_t), I2C_MASTER_TIMEOUT_MS);
+        
+        if (ret == ESP_OK) {
+            // Dump first few bytes to help debug
+            ESP_LOGI(TAG, "Successfully read from 0x%02X - Header: type=0x%02X, sub_id=0x%02X, data_len=%u",
+                    addr, response->header.msg_type, response->header.sub_id, response->header.data_len);
+            
+            // Log first few bytes of data for debugging
+            if (response->header.data_len > 0) {
+                ESP_LOGI(TAG, "Data[0..3]: 0x%02X 0x%02X 0x%02X 0x%02X...",
+                    response->data[0], 
+                    response->header.data_len > 1 ? response->data[1] : 0,
+                    response->header.data_len > 2 ? response->data[2] : 0,
+                    response->header.data_len > 3 ? response->data[3] : 0);
+            }
+            
+            return ESP_OK;
+        } else {
+            ESP_LOGW(TAG, "Failed to read I2C response from 0x%02X (retry %d): %s",
+                    addr, 2-retries, esp_err_to_name(ret));
+            vTaskDelay(pdMS_TO_TICKS(100)); // Short delay before retry
+        }
+    }
+    
+    return ret;
+}
+
+// Alias for i2c_master_read for compatibility with existing code
+esp_err_t i2c_master_read_msg(uint8_t addr, i2c_message_t *response) {
+    // This is just a wrapper around i2c_master_read to maintain backward compatibility
+    return i2c_master_read(addr, response);
+}
+
 esp_err_t i2c_master_send_hello(uint8_t addr) {
-    ESP_LOGD(TAG, "Sending hello to address 0x%02X", addr);
+    ESP_LOGI(TAG, "Sending hello to fixed SUB at address 0x%02X", addr);
     return i2c_master_send(addr, MSG_HELLO, 0, NULL, 0);
 }
 
@@ -174,38 +153,33 @@ esp_err_t i2c_master_send_verify(uint8_t addr, const char *id_str) {
         return ESP_ERR_INVALID_ARG;
     }
     
-    ESP_LOGD(TAG, "Sending verify '%s' to address 0x%02X", id_str, addr);
+    ESP_LOGI(TAG, "Sending verify '%s' to fixed SUB at address 0x%02X", id_str, addr);
     return i2c_master_send(addr, MSG_VERIFY, 0, (const uint8_t *)id_str, 2);
 }
 
-esp_err_t i2c_master_send_assign(uint8_t old_addr, uint8_t new_addr, uint8_t wifi_channel, uint8_t sub_id) {
+esp_err_t i2c_master_send_assign(uint8_t addr, uint8_t new_addr, uint8_t wifi_channel, uint8_t sub_id) {
     uint8_t data[3];
-    data[0] = new_addr;
-    data[1] = wifi_channel;
-    data[2] = sub_id;
+    data[0] = new_addr;       // New I2C address (though in fixed mode, this will be the same)
+    data[1] = wifi_channel;   // WiFi channel to scan
+    data[2] = sub_id;         // SUB ID assigned by DOM
     
-    ESP_LOGD(TAG, "Assigning address 0x%02X -> 0x%02X, WiFi channel %u, SUB ID %u",
-             old_addr, new_addr, wifi_channel, sub_id);
-    return i2c_master_send(old_addr, MSG_ASSIGN, 0, data, sizeof(data));
-}
-
-esp_err_t i2c_master_send_reset(uint8_t addr) {
-    ESP_LOGD(TAG, "Sending reset to address 0x%02X", addr);
-    return i2c_master_send(addr, MSG_RESET, 0, NULL, 0);
+    ESP_LOGI(TAG, "Assigning WiFi channel %u, SUB ID %u to fixed SUB at 0x%02X (new addr: 0x%02X)",
+             wifi_channel, sub_id, addr, new_addr);
+    return i2c_master_send(addr, MSG_ASSIGN, 0, data, sizeof(data));
 }
 
 esp_err_t i2c_master_set_time(uint8_t addr, uint8_t sub_id, uint32_t timestamp) {
-    ESP_LOGD(TAG, "Setting time %lu on SUB %u (0x%02X)", (unsigned long)timestamp, sub_id, addr);
+    ESP_LOGI(TAG, "Setting time %lu on SUB %u (0x%02X)", (unsigned long)timestamp, sub_id, addr);
     return i2c_master_send(addr, MSG_SET_TIME, sub_id, (const uint8_t *)&timestamp, sizeof(timestamp));
 }
 
 esp_err_t i2c_master_start_scan(uint8_t addr, uint8_t sub_id) {
-    ESP_LOGD(TAG, "Starting scan on SUB %u (0x%02X)", sub_id, addr);
+    ESP_LOGI(TAG, "Starting scan on SUB %u (0x%02X)", sub_id, addr);
     return i2c_master_send(addr, MSG_START_SCAN, sub_id, NULL, 0);
 }
 
 esp_err_t i2c_master_stop_scan(uint8_t addr, uint8_t sub_id) {
-    ESP_LOGD(TAG, "Stopping scan on SUB %u (0x%02X)", sub_id, addr);
+    ESP_LOGI(TAG, "Stopping scan on SUB %u (0x%02X)", sub_id, addr);
     return i2c_master_send(addr, MSG_STOP_SCAN, sub_id, NULL, 0);
 }
 
@@ -227,7 +201,7 @@ esp_err_t i2c_master_req_ap_count(uint8_t addr, uint8_t sub_id, uint16_t *count)
     vTaskDelay(pdMS_TO_TICKS(5));
     
     // Read response
-    ret = i2c_master_read_msg(addr, &response);
+    ret = i2c_master_read(addr, &response);
     if (ret != ESP_OK) {
         return ret;
     }
@@ -235,13 +209,13 @@ esp_err_t i2c_master_req_ap_count(uint8_t addr, uint8_t sub_id, uint16_t *count)
     // Check response type
     if (response.header.msg_type != MSG_AP_COUNT) {
         ESP_LOGW(TAG, "Unexpected response type: 0x%02X", response.header.msg_type);
-        return ESP_ERR_INVALID_RESPONSE;
+        return ESP_ERR_INVALID_STATE; // Using ESP_ERR_INVALID_STATE instead of ESP_ERR_INVALID_RESPONSE
     }
     
     // Extract count
     if (response.header.data_len >= sizeof(uint16_t)) {
         memcpy(count, response.data, sizeof(uint16_t));
-        ESP_LOGD(TAG, "SUB %u reported %u APs", sub_id, *count);
+        ESP_LOGI(TAG, "SUB %u reported %u APs", sub_id, *count);
     } else {
         *count = 0;
         ESP_LOGW(TAG, "Invalid AP count data length: %u", response.header.data_len);
@@ -268,7 +242,7 @@ esp_err_t i2c_master_req_ap_data(uint8_t addr, uint8_t sub_id, ap_record_t *reco
     vTaskDelay(pdMS_TO_TICKS(5));
     
     // Read response
-    ret = i2c_master_read_msg(addr, &response);
+    ret = i2c_master_read(addr, &response);
     if (ret != ESP_OK) {
         return ret;
     }
@@ -276,7 +250,7 @@ esp_err_t i2c_master_req_ap_data(uint8_t addr, uint8_t sub_id, ap_record_t *reco
     // Check response type
     if (response.header.msg_type != MSG_AP_DATA) {
         ESP_LOGW(TAG, "Unexpected response type: 0x%02X", response.header.msg_type);
-        return ESP_ERR_INVALID_RESPONSE;
+        return ESP_ERR_INVALID_STATE; // Using ESP_ERR_INVALID_STATE instead of ESP_ERR_INVALID_RESPONSE
     }
     
     // Check if we have data
@@ -285,17 +259,17 @@ esp_err_t i2c_master_req_ap_data(uint8_t addr, uint8_t sub_id, ap_record_t *reco
         if (response.header.data_len >= sizeof(ap_record_t)) {
             memcpy(record, response.data, sizeof(ap_record_t));
             *has_more = true;
-            ESP_LOGD(TAG, "Received AP data from SUB %u: RSSI %d", 
+            ESP_LOGI(TAG, "Received AP data from SUB %u: RSSI %d", 
                      sub_id, record->rssi);
         } else {
             ESP_LOGW(TAG, "Invalid AP data length: %u", response.header.data_len);
             *has_more = false;
-            return ESP_ERR_INVALID_SIZE;
+            return ESP_ERR_INVALID_ARG; // Using ESP_ERR_INVALID_ARG instead of ESP_ERR_INVALID_SIZE
         }
     } else {
         // No more data
         *has_more = false;
-        ESP_LOGD(TAG, "No more AP data from SUB %u", sub_id);
+        ESP_LOGI(TAG, "No more AP data from SUB %u", sub_id);
     }
     
     return ESP_OK;
@@ -306,6 +280,11 @@ esp_err_t i2c_master_confirm_ap(uint8_t addr, uint8_t sub_id, const uint8_t *bss
         return ESP_ERR_INVALID_ARG;
     }
     
-    ESP_LOGD(TAG, "Confirming AP receipt on SUB %u", sub_id);
+    ESP_LOGI(TAG, "Confirming AP receipt on SUB %u", sub_id);
     return i2c_master_send(addr, MSG_CONFIRM_AP, sub_id, bssid, 6);
+}
+
+esp_err_t i2c_master_send_reset(uint8_t addr) {
+    ESP_LOGI(TAG, "Sending reset command to SUB at address 0x%02X", addr);
+    return i2c_master_send(addr, MSG_RESET, 0, NULL, 0);
 }

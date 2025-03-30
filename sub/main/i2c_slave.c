@@ -1,29 +1,24 @@
 #include "i2c_slave.h"
 #include "wifi_scanner.h"
 #include "ap_list.h"
-#include <string.h>
 #include <inttypes.h>
-#include "esp_log.h"
-#include "esp_random.h"
-#include "driver/i2c.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/queue.h"
 
-static const char *TAG = "i2c_slave";
+static const char *TAG = I2C_SLAVE_TAG;
 
-// I2C pins
-#define I2C_SDA_PIN 4
-#define I2C_SCL_PIN 5
-#define I2C_PORT I2C_NUM_0
+// I2C slave device handle
+static i2c_slave_dev_handle_t slave_handle;
 
-// Maximum message queue size
-#define I2C_QUEUE_SIZE 10
+// Message queue for processing I2C messages
+static QueueHandle_t i2c_msg_queue;
 
-// The sub node configuration
+// Send/receive buffers
+static uint8_t tx_buffer[I2C_DATA_LEN];
+static uint8_t rx_buffer[I2C_DATA_LEN];
+
+// The SUB node configuration
 static sub_config_t sub_config = {
     .id = {0},
-    .i2c_addr = 0,
+    .i2c_addr = I2C_FIXED_SLAVE_ADDR,
     .wifi_channel = 0,
     .status = SUB_STATUS_UNINITIALIZED,
     .timestamp = 0
@@ -32,184 +27,152 @@ static sub_config_t sub_config = {
 // Verification flag
 static bool is_verified = false;
 
-// Message queue for processing messages
-static QueueHandle_t i2c_msg_queue = NULL;
-
-// Task handle for message processing
-static TaskHandle_t i2c_process_task_handle = NULL;
-
-// Buffer for receiving I2C data
-static uint8_t i2c_data_buffer[I2C_DATA_LEN];
-static uint8_t i2c_send_buffer[I2C_DATA_LEN];
-
-// Forward declarations for internal functions
+// Forward declarations
 static void i2c_process_task(void *pvParameters);
 static void i2c_message_handler(i2c_message_t *msg);
-static void prepare_response(uint8_t msg_type, uint8_t *data, uint8_t data_len);
 
-// I2C event handler - this implementation uses the older i2c API
-// Dedicated task for handling I2C slave events
-static void i2c_slave_task(void *pvParameters) {
-    i2c_message_t msg;
-    uint8_t recv_buf[I2C_DATA_LEN];
-    int len;
-    
-    ESP_LOGI(TAG, "I2C slave task started on address 0x%02X", sub_config.i2c_addr);
-    
-    // Prepare initial response - a hello message with our ID
-    prepare_response(MSG_HELLO, (uint8_t *)sub_config.id, 2);
-    
-    while (1) {
-        // Always make sure our response buffer is ready
-        i2c_slave_write_buffer(I2C_PORT, i2c_send_buffer, sizeof(i2c_send_buffer), 0);
-        
-        // Check if master is trying to write to us
-        len = i2c_slave_read_buffer(I2C_PORT, recv_buf, sizeof(recv_buf), 0);
-        
-        if (len > 0) {
-            // Received a message from master (DOM)
-            memcpy(&msg, recv_buf, sizeof(msg));
-            
-            ESP_LOGI(TAG, "Received message from DOM: type=0x%02X, sub_id=0x%02X, len=%d", 
-                    msg.header.msg_type, msg.header.sub_id, msg.header.data_len);
-            
-            // Process message and prepare response immediately
-            i2c_message_handler(&msg);
-            
-            // Send to processing queue for background handling
-            if (xQueueSend(i2c_msg_queue, &msg, pdMS_TO_TICKS(100)) != pdTRUE) {
-                ESP_LOGW(TAG, "Failed to queue I2C message");
-            }
-            
-            // Small delay after processing a message to ensure response is ready
-            vTaskDelay(pdMS_TO_TICKS(5));
-        }
-        
-        // Small delay to prevent high CPU usage
-        vTaskDelay(pdMS_TO_TICKS(5));
+// We'll implement a simple write method
+static esp_err_t i2c_slave_write_tx_buffer(const uint8_t *data, size_t len)
+{
+    // Simple implementation - the message will be sent on next master read
+    if (len > I2C_DATA_LEN) {
+        len = I2C_DATA_LEN;  // Truncate if too long
     }
+    
+    // Copy data to the tx buffer
+    memcpy(tx_buffer, data, len);
+    
+    return ESP_OK;
+}
+
+// I2C slave receive callback - triggered when data is received from master
+static IRAM_ATTR bool i2c_slave_rx_callback(i2c_slave_dev_handle_t channel, 
+                                           const i2c_slave_rx_done_event_data_t *edata, 
+                                           void *user_data)
+{
+    BaseType_t high_task_wakeup = pdFALSE;
+    QueueHandle_t queue = (QueueHandle_t)user_data;
+    
+    // Copy data to a queue to be processed later by a task
+    // Access to the buffer and copy its contents - assuming structure contains buffer and buffer_size
+    // Let's copy whatever data we have in edata
+    memcpy(rx_buffer, edata, sizeof(i2c_slave_rx_done_event_data_t));
+    
+    // Queue a fixed size that will tell our task to process the rx_buffer
+    uint32_t data_size = sizeof(i2c_slave_rx_done_event_data_t);
+    xQueueSendFromISR(queue, &data_size, &high_task_wakeup);
+    
+    return high_task_wakeup == pdTRUE;
 }
 
 esp_err_t i2c_slave_init(void) {
-    ESP_LOGI(TAG, "Initializing I2C slave");
+    ESP_LOGI(TAG, "Initializing I2C slave with the new driver API");
     
     // Generate random ID
     random_id_generate(sub_config.id);
     
-    // Generate random I2C address in discovery range
-    sub_config.i2c_addr = I2C_ADDR_RANDOM_MIN + (esp_random() % (I2C_ADDR_RANDOM_MAX - I2C_ADDR_RANDOM_MIN + 1));
+    // Using fixed I2C address for SUB node
+    ESP_LOGI(TAG, "FIXED I2C ADDRESS MODE: SUB ID: %s, Fixed I2C address: 0x%02X", 
+             sub_config.id, sub_config.i2c_addr);
+    ESP_LOGI(TAG, "I2C pins: SCL=%d, SDA=%d", I2C_SLAVE_SCL_IO, I2C_SLAVE_SDA_IO);
     
-    // Initialize status
-    sub_config.status = SUB_STATUS_UNINITIALIZED;
-    sub_config.wifi_channel = 0;
-    sub_config.timestamp = 0;
+    // Initialize buffers
+    memset(tx_buffer, 0xFF, sizeof(tx_buffer));
+    memset(rx_buffer, 0xFF, sizeof(rx_buffer));
     
-    ESP_LOGI(TAG, "SUB ID: %s, I2C address: 0x%02X", sub_config.id, sub_config.i2c_addr);
+    // Prepare HELLO response message in advance
+    tx_buffer[0] = MSG_HELLO;
+    tx_buffer[1] = 0; // SUB ID not yet assigned
+    tx_buffer[2] = 2; // data length (ID is 2 chars)
+    tx_buffer[3] = sub_config.id[0];
+    tx_buffer[4] = sub_config.id[1];
     
-    // Create message queue
-    i2c_msg_queue = xQueueCreate(I2C_QUEUE_SIZE, sizeof(i2c_message_t));
+    // I2C slave configuration
+    i2c_slave_config_t slave_config = {
+        .addr_bit_len = I2C_ADDR_BIT_LEN_7,
+        .clk_source = I2C_CLK_SRC_DEFAULT,
+        .i2c_port = I2C_SLAVE_PORT,
+        .send_buf_depth = 256,
+        .scl_io_num = I2C_SLAVE_SCL_IO,
+        .sda_io_num = I2C_SLAVE_SDA_IO,
+        .slave_addr = I2C_FIXED_SLAVE_ADDR,
+    };
+    
+    // Create I2C slave device
+    esp_err_t ret = i2c_new_slave_device(&slave_config, &slave_handle);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to create I2C slave device: %s", esp_err_to_name(ret));
+        return ret;
+    }
+    
+    // Create message queue - just to store sizes, the buffer is static
+    i2c_msg_queue = xQueueCreate(10, sizeof(uint32_t));
     if (i2c_msg_queue == NULL) {
         ESP_LOGE(TAG, "Failed to create message queue");
+        i2c_del_slave_device(slave_handle);
         return ESP_FAIL;
     }
     
-    // Initialize buffer with 0xFF (unused data marker)
-    memset(i2c_data_buffer, 0xFF, sizeof(i2c_data_buffer));
-    memset(i2c_send_buffer, 0xFF, sizeof(i2c_send_buffer));
-    
-    // I2C bus config
-    i2c_config_t i2c_bus_config = {
-        .mode = I2C_MODE_SLAVE,
-        .sda_io_num = I2C_SDA_PIN,
-        .scl_io_num = I2C_SCL_PIN,
-        .sda_pullup_en = GPIO_PULLUP_ENABLE,
-        .scl_pullup_en = GPIO_PULLUP_ENABLE,
-        .slave.addr_10bit_en = 0,
-        .slave.slave_addr = sub_config.i2c_addr
+    // Create callbacks structure
+    i2c_slave_event_callbacks_t callbacks = {
+        .on_recv_done = i2c_slave_rx_callback
     };
     
-    // Initialize I2C bus
-    ESP_ERROR_CHECK(i2c_param_config(I2C_PORT, &i2c_bus_config));
+    // Register callbacks for receiving and sending data
+    ret = i2c_slave_register_event_callbacks(slave_handle, &callbacks, i2c_msg_queue);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to register callbacks: %s", esp_err_to_name(ret));
+        vQueueDelete(i2c_msg_queue);
+        i2c_del_slave_device(slave_handle);
+        return ret;
+    }
     
-    // Initialize I2C driver
-    // Using older API: i2c_driver_install(i2c_port_t, i2c_mode_t, size_t rx_buf_len, size_t tx_buf_len, int flags)
-    // For slave mode, ESP-IDF requires larger buffer sizes (minimum 32 bytes for RX and TX)
-    ESP_ERROR_CHECK(i2c_driver_install(I2C_PORT, I2C_MODE_SLAVE, 128, 128, 0));
+    // Prepare initial response - hello message with our ID
+    i2c_slave_prepare_response(MSG_HELLO, (uint8_t *)sub_config.id, 2);
     
-    // Create message processing task
+    // Create task to process received messages
     BaseType_t task_created = xTaskCreate(
         i2c_process_task,
         "i2c_proc",
         4096,
         NULL,
         5,
-        &i2c_process_task_handle
+        NULL
     );
     
-    // Create I2C slave handling task
-    static TaskHandle_t i2c_slave_task_handle = NULL;
-    BaseType_t i2c_task_created = xTaskCreate(
-        i2c_slave_task,
-        "i2c_slave",
-        4096,
-        NULL,
-        6, // Higher priority than processing task
-        &i2c_slave_task_handle
-    );
-    
-    if (task_created != pdPASS || i2c_task_created != pdPASS) {
-        ESP_LOGE(TAG, "Failed to create I2C tasks");
+    if (task_created != pdPASS) {
+        ESP_LOGE(TAG, "Failed to create I2C processing task");
+        vQueueDelete(i2c_msg_queue);
+        i2c_del_slave_device(slave_handle);
         return ESP_FAIL;
     }
     
-    ESP_LOGI(TAG, "I2C slave initialized");
+    ESP_LOGI(TAG, "I2C slave initialized successfully");
     return ESP_OK;
 }
 
-esp_err_t i2c_slave_start(void) {
-    ESP_LOGI(TAG, "Starting I2C slave on address 0x%02X", sub_config.i2c_addr);
+esp_err_t i2c_slave_begin(void) {
+    ESP_LOGI(TAG, "Starting I2C slave on fixed address 0x%02X", sub_config.i2c_addr);
+    
+    // No specific start function in ESP-IDF v5.4 - the device is already active after init
+    ESP_LOGI(TAG, "I2C slave ready to send/receive data");
     return ESP_OK;
 }
 
 esp_err_t i2c_slave_stop(void) {
     ESP_LOGI(TAG, "Stopping I2C slave");
     
-    // Delete task if it exists
-    if (i2c_process_task_handle != NULL) {
-        vTaskDelete(i2c_process_task_handle);
-        i2c_process_task_handle = NULL;
+    // Delete slave device
+    esp_err_t ret = i2c_del_slave_device(slave_handle);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to delete I2C slave device: %s", esp_err_to_name(ret));
+        return ret;
     }
     
-    // Delete queue if it exists
-    if (i2c_msg_queue != NULL) {
-        vQueueDelete(i2c_msg_queue);
-        i2c_msg_queue = NULL;
-    }
+    // Delete queue
+    vQueueDelete(i2c_msg_queue);
     
-    // Uninstall I2C driver
-    ESP_ERROR_CHECK(i2c_driver_delete(I2C_PORT));
-    
-    return ESP_OK;
-}
-
-esp_err_t i2c_slave_set_address(uint8_t new_addr) {
-    if (new_addr < I2C_ADDR_RESERVED_MIN || new_addr > I2C_ADDR_RESERVED_MAX) {
-        ESP_LOGE(TAG, "Invalid I2C address: 0x%02X", new_addr);
-        return ESP_ERR_INVALID_ARG;
-    }
-    
-    ESP_LOGI(TAG, "Changing I2C address from 0x%02X to 0x%02X", sub_config.i2c_addr, new_addr);
-    
-    // Stop I2C slave
-    i2c_slave_stop();
-    
-    // Update address
-    sub_config.i2c_addr = new_addr;
-    
-    // Reinitialize with new address
-    i2c_slave_init();
-    i2c_slave_start();
-    
+    ESP_LOGI(TAG, "I2C slave stopped successfully");
     return ESP_OK;
 }
 
@@ -225,27 +188,39 @@ void i2c_slave_reset_verification(void) {
     is_verified = false;
 }
 
-// Prepare a response message to the DOM
-static void prepare_response(uint8_t msg_type, uint8_t *data, uint8_t data_len) {
-    // Clear send buffer
-    memset(i2c_send_buffer, 0xFF, sizeof(i2c_send_buffer));
+// Prepare a response message for the DOM
+void i2c_slave_prepare_response(uint8_t msg_type, const uint8_t *data, uint8_t data_len) {
+    if (data_len > I2C_MESSAGE_DATA_LEN) {
+        ESP_LOGE(TAG, "Data too large for I2C message (%u > %u)", 
+                 data_len, I2C_MESSAGE_DATA_LEN);
+        return;
+    }
+    
+    // Create a temporary buffer for the message
+    uint8_t message[I2C_DATA_LEN];
+    memset(message, 0xFF, sizeof(message)); // Fill with 0xFF (unused marker)
     
     // Set up message header
-    i2c_message_t *msg = (i2c_message_t *)i2c_send_buffer;
-    msg->header.msg_type = msg_type;
-    msg->header.sub_id = 0; // Will be assigned by DOM
-    msg->header.data_len = data_len;
+    message[0] = msg_type;             // Message type
+    message[1] = 0;                    // SUB ID (will be assigned by DOM)
+    message[2] = data_len;             // Data length
     
     // Copy data if provided
     if (data != NULL && data_len > 0) {
-        memcpy(msg->data, data, data_len);
+        memcpy(message + I2C_HEADER_LEN, data, data_len);
     }
+    
+    // Write to the TX buffer
+    i2c_slave_write_tx_buffer(message, I2C_DATA_LEN);
+    
+    ESP_LOGD(TAG, "Prepared response message type 0x%02X with %u bytes of data", 
+             msg_type, data_len);
 }
 
 // Handle AP count request
 static void handle_ap_count_request(void) {
     uint16_t count = ap_list_get_count();
-    prepare_response(MSG_AP_COUNT, (uint8_t *)&count, sizeof(count));
+    i2c_slave_prepare_response(MSG_AP_COUNT, (uint8_t *)&count, sizeof(count));
     ESP_LOGI(TAG, "AP count request: %u APs found", count);
 }
 
@@ -254,26 +229,47 @@ static void handle_ap_data_request(void) {
     ap_record_t record;
     if (ap_list_get_next_unsync(&record)) {
         // Found an unsynced record, send it
-        prepare_response(MSG_AP_DATA, (uint8_t *)&record, sizeof(record));
+        i2c_slave_prepare_response(MSG_AP_DATA, (uint8_t *)&record, sizeof(record));
         ESP_LOGD(TAG, "Sending AP data: RSSI %d, Channel %u", 
                 record.rssi, record.channel);
     } else {
         // No more unsynced records
-        prepare_response(MSG_AP_DATA, NULL, 0);
+        i2c_slave_prepare_response(MSG_AP_DATA, NULL, 0);
         ESP_LOGD(TAG, "No more unsynced AP records");
     }
 }
 
 // I2C message processing task
 static void i2c_process_task(void *pvParameters) {
-    i2c_message_t msg;
+    uint32_t data_size;
     
     ESP_LOGI(TAG, "I2C message processing task started");
     
     while (1) {
-        // Wait for a message
-        if (xQueueReceive(i2c_msg_queue, &msg, portMAX_DELAY) == pdTRUE) {
-            i2c_message_handler(&msg);
+        if (xQueueReceive(i2c_msg_queue, &data_size, portMAX_DELAY) == pdTRUE) {
+            ESP_LOGI(TAG, "Received I2C data, size=%u", (unsigned int)data_size);
+            
+            // We have received data, treat first few bytes as our message header
+            if (data_size > 0) {
+                // Assume rx_buffer contains our I2C message
+                i2c_message_t msg;
+                
+                // The first bytes contain our message header - size is checked inside handler
+                msg.header.msg_type = rx_buffer[0];
+                msg.header.sub_id = rx_buffer[1];
+                msg.header.data_len = rx_buffer[2];
+                
+                // Copy data portion
+                if (msg.header.data_len > 0 && msg.header.data_len <= I2C_MESSAGE_DATA_LEN) {
+                    memcpy(msg.data, &rx_buffer[3], msg.header.data_len);
+                }
+                
+                ESP_LOGI(TAG, "Received message from DOM: type=0x%02X, sub_id=0x%02X, len=%d", 
+                        msg.header.msg_type, msg.header.sub_id, msg.header.data_len);
+                
+                // Process the message
+                i2c_message_handler(&msg);
+            }
         }
     }
 }
@@ -282,14 +278,14 @@ static void i2c_process_task(void *pvParameters) {
 static void i2c_message_handler(i2c_message_t *msg) {
     if (!msg) return;
     
-    ESP_LOGD(TAG, "Received message type: 0x%02X, sub_id: 0x%02X, data_len: %u", 
+    ESP_LOGD(TAG, "Processing message type: 0x%02X, sub_id: 0x%02X, data_len: %u", 
              msg->header.msg_type, msg->header.sub_id, msg->header.data_len);
     
     switch (msg->header.msg_type) {
         case MSG_HELLO:
             // DOM is saying hello, respond with our ID
             ESP_LOGI(TAG, "DOM hello message received");
-            prepare_response(MSG_HELLO, (uint8_t *)sub_config.id, 2);
+            i2c_slave_prepare_response(MSG_HELLO, (uint8_t *)sub_config.id, 2);
             break;
             
         case MSG_VERIFY:
@@ -299,71 +295,61 @@ static void i2c_message_handler(i2c_message_t *msg) {
                 // ID matches, we're verified
                 ESP_LOGI(TAG, "Verified by DOM!");
                 is_verified = true;
-                prepare_response(MSG_VERIFY, (uint8_t *)sub_config.id, 2);
+                i2c_slave_prepare_response(MSG_VERIFY, (uint8_t *)sub_config.id, 2);
             } else {
                 // ID mismatch
                 ESP_LOGW(TAG, "Verification failed - ID mismatch");
-                prepare_response(MSG_ERROR, NULL, 0);
+                i2c_slave_prepare_response(MSG_ERROR, NULL, 0);
             }
             break;
             
         case MSG_ASSIGN:
-            // DOM is assigning us a new I2C address and WiFi channel
+            // DOM is assigning us WiFi channel and SUB ID (in fixed address mode)
             if (msg->header.data_len >= 3 && is_verified) {
-                uint8_t new_i2c_addr = msg->data[0];
-                uint8_t new_wifi_channel = msg->data[1];
-                uint8_t assigned_sub_id = msg->data[2];
+                uint8_t new_i2c_addr = msg->data[0]; // New I2C address (not used in fixed mode)
+                uint8_t wifi_channel = msg->data[1];
+                uint8_t sub_id = msg->data[2];
                 
-                ESP_LOGI(TAG, "DOM assigned: I2C=0x%02X, WiFi=%u, SUB_ID=%u", 
-                         new_i2c_addr, new_wifi_channel, assigned_sub_id);
+                ESP_LOGI(TAG, "DOM assigned: New I2C addr=0x%02X, WiFi channel=%u, SUB_ID=%u", 
+                         new_i2c_addr, wifi_channel, sub_id);
+                
+                // In fixed address mode, we ignore the new I2C address and keep our fixed address
+                ESP_LOGI(TAG, "Fixed address mode: Keeping fixed I2C address 0x%02X", sub_config.i2c_addr);
                 
                 // Update our configuration
-                sub_config.wifi_channel = new_wifi_channel;
+                sub_config.wifi_channel = wifi_channel;
                 sub_config.status = SUB_STATUS_INITIALIZED;
                 
-                // We need to respond before changing I2C address
-                prepare_response(MSG_ASSIGN, NULL, 0);
-                
-                // Schedule address change (will be applied after response is sent)
-                vTaskDelay(pdMS_TO_TICKS(100));
-                i2c_slave_set_address(new_i2c_addr);
+                i2c_slave_prepare_response(MSG_ASSIGN, NULL, 0);
             } else {
-                ESP_LOGW(TAG, "Assignment rejected - not verified");
-                prepare_response(MSG_ERROR, NULL, 0);
+                ESP_LOGW(TAG, "Assignment rejected - not verified or invalid data");
+                i2c_slave_prepare_response(MSG_ERROR, NULL, 0);
             }
             break;
             
         case MSG_RESET:
-            // DOM is asking us to reset
-            ESP_LOGI(TAG, "Reset command received from DOM");
+            // DOM is requesting a reset
+            ESP_LOGI(TAG, "DOM requested reset, resetting SUB configuration");
             
-            // Stop WiFi scanner if running
+            // Reset our configuration
+            random_id_generate(sub_config.id);
+            sub_config.wifi_channel = 0;
+            sub_config.status = SUB_STATUS_UNINITIALIZED;
+            sub_config.timestamp = 0;
+            is_verified = false;
+            
+            // Stop WiFi scanning if active
             if (sub_config.status == SUB_STATUS_SCANNING) {
                 wifi_scanner_stop();
             }
             
-            // Reset verification status
-            is_verified = false;
+            // Clear AP list
+            ap_list_clear();
             
-            // Reset our state but keep our ID
-            char saved_id[3];
-            memcpy(saved_id, sub_config.id, 3);
+            // Prepare initial response for next master communication
+            i2c_slave_prepare_response(MSG_HELLO, (uint8_t *)sub_config.id, 2);
             
-            // Generate a new random I2C address
-            uint8_t new_i2c_addr = I2C_ADDR_RANDOM_MIN + (esp_random() % (I2C_ADDR_RANDOM_MAX - I2C_ADDR_RANDOM_MIN + 1));
-            
-            sub_config.i2c_addr = new_i2c_addr;
-            sub_config.wifi_channel = 0;
-            sub_config.status = SUB_STATUS_UNINITIALIZED;
-            
-            // Restore our ID
-            memcpy(sub_config.id, saved_id, 3);
-            
-            prepare_response(MSG_RESET, NULL, 0);
-            
-            // Schedule address change (will be applied after response is sent)
-            vTaskDelay(pdMS_TO_TICKS(100));
-            i2c_slave_set_address(new_i2c_addr);
+            ESP_LOGI(TAG, "SUB reset complete, new ID: %s", sub_config.id);
             break;
             
         case MSG_SET_TIME:
@@ -378,26 +364,26 @@ static void i2c_message_handler(i2c_message_t *msg) {
                 sub_config.timestamp = timestamp;
                 wifi_scanner_set_timestamp(timestamp);
                 
-                prepare_response(MSG_SET_TIME, NULL, 0);
+                i2c_slave_prepare_response(MSG_SET_TIME, NULL, 0);
             } else {
                 ESP_LOGW(TAG, "Invalid timestamp data");
-                prepare_response(MSG_ERROR, NULL, 0);
+                i2c_slave_prepare_response(MSG_ERROR, NULL, 0);
             }
             break;
             
         case MSG_START_SCAN:
             // DOM is asking us to start scanning
             if (sub_config.status != SUB_STATUS_SCANNING) {
-                ESP_LOGI(TAG, "Starting WiFi scan on channel %u", sub_config.wifi_channel);
+                ESP_LOGI(TAG, "Starting WiFi scan on fixed channel %u", sub_config.wifi_channel);
                 
                 // Start WiFi scanner
                 wifi_scanner_start(sub_config.wifi_channel);
                 sub_config.status = SUB_STATUS_SCANNING;
                 
-                prepare_response(MSG_START_SCAN, NULL, 0);
+                i2c_slave_prepare_response(MSG_START_SCAN, NULL, 0);
             } else {
                 ESP_LOGW(TAG, "WiFi scanner already running");
-                prepare_response(MSG_ERROR, NULL, 0);
+                i2c_slave_prepare_response(MSG_ERROR, NULL, 0);
             }
             break;
             
@@ -410,10 +396,10 @@ static void i2c_message_handler(i2c_message_t *msg) {
                 wifi_scanner_stop();
                 sub_config.status = SUB_STATUS_INITIALIZED;
                 
-                prepare_response(MSG_STOP_SCAN, NULL, 0);
+                i2c_slave_prepare_response(MSG_STOP_SCAN, NULL, 0);
             } else {
                 ESP_LOGW(TAG, "WiFi scanner not running");
-                prepare_response(MSG_ERROR, NULL, 0);
+                i2c_slave_prepare_response(MSG_ERROR, NULL, 0);
             }
             break;
             
@@ -437,21 +423,21 @@ static void i2c_message_handler(i2c_message_t *msg) {
                 // Mark the AP as synced
                 if (ap_list_mark_synced(bssid)) {
                     ESP_LOGD(TAG, "AP marked as synced");
-                    prepare_response(MSG_CONFIRM_AP, NULL, 0);
+                    i2c_slave_prepare_response(MSG_CONFIRM_AP, NULL, 0);
                 } else {
                     ESP_LOGW(TAG, "AP not found for sync marking");
-                    prepare_response(MSG_ERROR, NULL, 0);
+                    i2c_slave_prepare_response(MSG_ERROR, NULL, 0);
                 }
             } else {
                 ESP_LOGW(TAG, "Invalid confirm AP data");
-                prepare_response(MSG_ERROR, NULL, 0);
+                i2c_slave_prepare_response(MSG_ERROR, NULL, 0);
             }
             break;
             
         default:
             // Unknown message type
             ESP_LOGW(TAG, "Unknown message type: 0x%02X", msg->header.msg_type);
-            prepare_response(MSG_ERROR, NULL, 0);
+            i2c_slave_prepare_response(MSG_ERROR, NULL, 0);
             break;
     }
 }

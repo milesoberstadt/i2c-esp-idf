@@ -59,6 +59,7 @@ static void console_task(void *pvParameters) {
         printf("Time: %lu seconds\n", (unsigned long)current_timestamp);
         printf("SUBs discovered: %u\n", sub_manager_get_count());
         printf("Total APs found: %lu\n", (unsigned long)sub_manager_get_total_ap_count());
+        printf("FIXED CHANNEL MODE ENABLED: All SUBs use the same WiFi channel\n");
         
         // Print SUB status
         printf("\nSUB Status:\n");
@@ -115,6 +116,8 @@ static void start_tasks(void) {
 
 void app_main(void) {
     ESP_LOGI(TAG, "Starting WiFi Scanner DOM node");
+    ESP_LOGI(TAG, "FIXED I2C ADDRESS MODE: Will connect to single SUB at address 0x42");
+    ESP_LOGI(TAG, "FIXED WIFI CHANNEL MODE: Using channel 6 for all SUBs");
     
     // Initialize NVS flash
     esp_err_t ret = nvs_flash_init();
@@ -133,13 +136,18 @@ void app_main(void) {
     // Initial timestamp (mock)
     current_timestamp = 1583020800; // March 1, 2020 00:00:00 GMT
     
-    // Wait for SUBs to start up and stabilize
-    ESP_LOGI(TAG, "Waiting 5 seconds for SUB nodes to initialize...");
-    vTaskDelay(pdMS_TO_TICKS(5000));  // 5 second delay
+    // Wait for SUB to start up and stabilize
+    ESP_LOGI(TAG, "Waiting 10 seconds for fixed SUB node to initialize...");
+    vTaskDelay(pdMS_TO_TICKS(10000));  // 10 second delay
     
     // Discover SUBs
     ESP_LOGI(TAG, "Discovering SUBs...");
-    ESP_ERROR_CHECK(sub_manager_discover());
+    esp_err_t discover_result = sub_manager_discover();
+    if (discover_result != ESP_OK) {
+        ESP_LOGW(TAG, "Failed to discover SUBs: %s", esp_err_to_name(discover_result));
+        // Continue anyway for debugging purposes
+        ESP_LOGW(TAG, "Continuing execution for debugging purposes");
+    }
     ESP_LOGI(TAG, "Found %u SUBs", sub_manager_get_count());
     
     // If no SUBs found, try again
@@ -147,16 +155,29 @@ void app_main(void) {
         ESP_LOGW(TAG, "No SUBs found, waiting and trying again...");
         vTaskDelay(pdMS_TO_TICKS(2000));
         
-        ESP_ERROR_CHECK(sub_manager_discover());
+        discover_result = sub_manager_discover();
+        if (discover_result != ESP_OK) {
+            ESP_LOGW(TAG, "Failed to discover SUBs on retry: %s", esp_err_to_name(discover_result));
+            // Continue anyway for debugging purposes
+            ESP_LOGW(TAG, "Continuing execution for debugging purposes");
+        }
         ESP_LOGI(TAG, "Found %u SUBs", sub_manager_get_count());
     }
     
-    // Set timestamp on all SUBs
-    sub_manager_set_timestamp(current_timestamp);
+    // Set timestamp on all SUBs - ignore errors for debugging
+    esp_err_t timestamp_ret = sub_manager_set_timestamp(current_timestamp);
+    if (timestamp_ret != ESP_OK) {
+        ESP_LOGW(TAG, "Failed to set timestamp on SUBs: %s", esp_err_to_name(timestamp_ret));
+        ESP_LOGW(TAG, "Continuing execution for debugging purposes");
+    }
     
-    // Start scanning on all SUBs
+    // Start scanning on all SUBs - ignore errors for debugging
     ESP_LOGI(TAG, "Starting scanning on all SUBs");
-    ESP_ERROR_CHECK(sub_manager_start_scanning());
+    esp_err_t scan_ret = sub_manager_start_scanning();
+    if (scan_ret != ESP_OK) {
+        ESP_LOGW(TAG, "Failed to start scanning on SUBs: %s", esp_err_to_name(scan_ret));
+        ESP_LOGW(TAG, "Continuing execution for debugging purposes");
+    }
     
     // Start tasks
     start_tasks();

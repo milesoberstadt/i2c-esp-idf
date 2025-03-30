@@ -15,6 +15,7 @@ static const char *TAG = "sub-main";
 
 void app_main(void) {
     ESP_LOGI(TAG, "Starting WiFi Scanner SUB node");
+    ESP_LOGI(TAG, "FIXED CHANNEL MODE: This SUB will use the channel assigned by DOM");
     
     // Initialize NVS flash
     esp_err_t ret = nvs_flash_init();
@@ -34,7 +35,7 @@ void app_main(void) {
     ESP_ERROR_CHECK(i2c_slave_init());
     
     // Start I2C slave
-    ESP_ERROR_CHECK(i2c_slave_start());
+    ESP_ERROR_CHECK(i2c_slave_begin());
     
     // Log our configuration
     sub_config_t *config = i2c_slave_get_config();

@@ -143,7 +143,7 @@ esp_err_t wifi_scanner_start(uint8_t channel) {
         wifi_scanner_stop();
     }
     
-    ESP_LOGI(TAG, "Starting WiFi scanner on channel %d", channel);
+    ESP_LOGI(TAG, "Starting WiFi scanner on FIXED channel %d", channel);
     
     // Set the WiFi channel
     ESP_ERROR_CHECK(esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE));
@@ -165,7 +165,7 @@ esp_err_t wifi_scanner_start(uint8_t channel) {
     // Create task to send periodic probe requests
     xTaskCreate(probe_request_task, "probe_req", 2048, NULL, 5, &probe_task_handle);
     
-    ESP_LOGI(TAG, "WiFi scanner started on channel %d", channel);
+    ESP_LOGI(TAG, "WiFi scanner started on fixed channel %d (all SUBs use the same channel)", channel);
     return ESP_OK;
 }
 
