@@ -67,9 +67,17 @@ bool i2c_scan_for_slave() {
              I2C_SLAVE_ADDR_MIN, I2C_SLAVE_ADDR_MAX);
 
     uint8_t device_count = 0;
+    uint16_t scanned_count = 0;
     
+    // More efficient scanning with reduced log noise
     for (uint8_t addr = I2C_SLAVE_ADDR_MIN; addr <= I2C_SLAVE_ADDR_MAX; addr++) {
-        ESP_LOGD(I2C_TAG, "Probing address 0x%02X...", addr);
+        scanned_count++;
+        
+        // Only log progress occasionally to reduce noise
+        if (scanned_count % 16 == 0) {
+            ESP_LOGI(I2C_TAG, "Scanning progress: %d/%d addresses...", 
+                    scanned_count, I2C_SLAVE_ADDR_MAX - I2C_SLAVE_ADDR_MIN + 1);
+        }
 
         i2c_device_config_t dev_cfg = {
             .dev_addr_length = I2C_ADDR_BIT_LEN_7,
@@ -86,7 +94,6 @@ bool i2c_scan_for_slave() {
         // Try to add the device at this address
         esp_err_t ret = i2c_master_bus_add_device(bus_handle, &dev_cfg, &temp_dev_handle);
         if (ret != ESP_OK) {
-            ESP_LOGD(I2C_TAG, "Failed to add device at address 0x%02X", addr);
             continue;
         }
 
