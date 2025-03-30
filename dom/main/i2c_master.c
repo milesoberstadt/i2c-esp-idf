@@ -1,21 +1,43 @@
 #include "i2c_master.h"
 #include "i2c_messages.h"
 #include "types.h"
+#include <sys/time.h>
 
-i2c_master_dev_handle_t dev_handle;
+// I2C master bus handle
 i2c_master_bus_handle_t bus_handle;
 
-// Define the slave device information
+// Temporary device handle for scanning
+i2c_master_dev_handle_t temp_dev_handle = NULL;
+
+// Array to hold all sub node information
+sub_node_t sub_nodes[MAX_SUB_NODES];
+
+// For backward compatibility with legacy code
 uint8_t discovered_slave_addr = 0;
 uint16_t slave_identifier = 0;
+i2c_master_dev_handle_t dev_handle;
 
-// Create temporary device handle for scanning
-i2c_master_dev_handle_t temp_dev_handle = NULL;
+// Get current timestamp in milliseconds for activity tracking
+static uint32_t get_current_time_ms() {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
+}
 
 bool i2c_init() {
     ESP_LOGI(I2C_TAG, "Initializing I2C master on port %d, SDA: %d, SCL: %d", 
              I2C_PORT_NUM, I2C_MASTER_SDA_IO, I2C_MASTER_SCL_IO);
 
+    // Initialize sub nodes array
+    for (int i = 0; i < MAX_SUB_NODES; i++) {
+        sub_nodes[i].address = 0;
+        sub_nodes[i].identifier = 0;
+        sub_nodes[i].handle = NULL;
+        sub_nodes[i].status = SUB_NODE_DISCONNECTED;
+        sub_nodes[i].last_seen = 0;
+    }
+
+    // Configure and create the I2C master bus
     i2c_master_bus_config_t i2c_mst_config = {
         .clk_source = I2C_CLK_SRC_DEFAULT,
         .i2c_port = I2C_NUM_0,
@@ -32,41 +54,29 @@ bool i2c_init() {
     }
     ESP_LOGI(I2C_TAG, "I2C master bus created successfully");
 
-    // Scan for slave
-    if (!i2c_scan_for_slave()) {
-        ESP_LOGE(I2C_TAG, "Failed to find I2C slave device");
+    // Scan for slaves
+    if (!i2c_scan_for_slaves()) {
+        ESP_LOGE(I2C_TAG, "Failed to find any I2C slave devices");
         return false;
     }
 
-    // Read slave identifier
-    if (!i2c_read_slave_identifier()) {
-        ESP_LOGW(I2C_TAG, "Failed to read slave identifier");
+    // Update legacy variables for compatibility
+    int first_node = i2c_get_first_node_index();
+    if (first_node >= 0) {
+        discovered_slave_addr = sub_nodes[first_node].address;
+        slave_identifier = sub_nodes[first_node].identifier;
+        dev_handle = sub_nodes[first_node].handle;
     }
 
-    // Create the final device handle with the discovered address
-    i2c_device_config_t dev_cfg = {
-        .dev_addr_length = I2C_ADDR_BIT_LEN_7,
-        .device_address = discovered_slave_addr,
-        .scl_speed_hz = 100000,
-    };
-
-    ret = i2c_master_bus_add_device(bus_handle, &dev_cfg, &dev_handle);
-    if (ret != ESP_OK) {
-        ESP_LOGE(I2C_TAG, "I2C master device addition failed: %s", esp_err_to_name(ret));
-        return false;
-    }
-    ESP_LOGI(I2C_TAG, "I2C master device added successfully with address 0x%02X", discovered_slave_addr);
-    ESP_LOGI(I2C_TAG, "I2C slave identifier: 0x%02X", slave_identifier);
-
-    ESP_LOGI(I2C_TAG, "I2C master initialized successfully");
+    ESP_LOGI(I2C_TAG, "I2C master initialized successfully with %d node(s)", i2c_get_connected_node_count());
     return true;
 }
 
-bool i2c_scan_for_slave() {
-    ESP_LOGI(I2C_TAG, "Scanning for I2C slave device in range 0x%02X - 0x%02X", 
+bool i2c_scan_for_slaves() {
+    ESP_LOGI(I2C_TAG, "Scanning for I2C slave devices in range 0x%02X - 0x%02X", 
              I2C_SLAVE_ADDR_MIN, I2C_SLAVE_ADDR_MAX);
 
-    uint8_t device_count = 0;
+    int device_count = 0;
     uint16_t scanned_count = 0;
     
     // More efficient scanning with reduced log noise
@@ -77,6 +87,12 @@ bool i2c_scan_for_slave() {
         if (scanned_count % 16 == 0) {
             ESP_LOGI(I2C_TAG, "Scanning progress: %d/%d addresses...", 
                     scanned_count, I2C_SLAVE_ADDR_MAX - I2C_SLAVE_ADDR_MIN + 1);
+        }
+
+        // Skip if we've already found the maximum number of devices
+        if (device_count >= MAX_SUB_NODES) {
+            ESP_LOGI(I2C_TAG, "Maximum number of devices (%d) found, stopping scan", MAX_SUB_NODES);
+            break;
         }
 
         i2c_device_config_t dev_cfg = {
@@ -103,12 +119,37 @@ bool i2c_scan_for_slave() {
         
         if (ret == ESP_OK) {
             ESP_LOGI(I2C_TAG, "Device found at address 0x%02X", addr);
-            device_count++;
-            discovered_slave_addr = addr;
             
-            // For now, we'll just take the first device we find
-            // In a more complex setup, we could test if it responds to our protocol
-            break;
+            // Add this device to our list
+            sub_nodes[device_count].address = addr;
+            sub_nodes[device_count].status = SUB_NODE_CONNECTED;
+            sub_nodes[device_count].last_seen = get_current_time_ms();
+
+            // Create a persistent device handle for this sub node
+            i2c_device_config_t node_cfg = {
+                .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+                .device_address = addr,
+                .scl_speed_hz = 100000,
+            };
+
+            i2c_master_dev_handle_t node_handle;
+            ret = i2c_master_bus_add_device(bus_handle, &node_cfg, &node_handle);
+            if (ret != ESP_OK) {
+                ESP_LOGE(I2C_TAG, "Failed to add device handle for sub node at address 0x%02X", addr);
+                continue;
+            }
+
+            sub_nodes[device_count].handle = node_handle;
+            
+            // Try to read the identifier
+            if (i2c_read_slave_identifier(device_count)) {
+                ESP_LOGI(I2C_TAG, "Sub node %d: address=0x%02X, identifier=0x%02X", 
+                        device_count, sub_nodes[device_count].address, sub_nodes[device_count].identifier);
+            } else {
+                ESP_LOGW(I2C_TAG, "Failed to read identifier for sub node at address 0x%02X", addr);
+            }
+            
+            device_count++;
         }
     }
 
@@ -123,39 +164,33 @@ bool i2c_scan_for_slave() {
         return false;
     }
 
-    ESP_LOGI(I2C_TAG, "Found I2C slave at address 0x%02X", discovered_slave_addr);
+    ESP_LOGI(I2C_TAG, "Found %d I2C slave device(s)", device_count);
     return true;
 }
 
-bool i2c_read_slave_identifier() {
-    ESP_LOGI(I2C_TAG, "Reading identifier from slave at address 0x%02X", discovered_slave_addr);
-
-    // Add a device with the discovered address for communication
-    i2c_device_config_t dev_cfg = {
-        .dev_addr_length = I2C_ADDR_BIT_LEN_7,
-        .device_address = discovered_slave_addr,
-        .scl_speed_hz = 100000,
-    };
-
-    // Create a temporary device for the identifier request
-    i2c_master_dev_handle_t id_dev_handle;
-    esp_err_t ret = i2c_master_bus_add_device(bus_handle, &dev_cfg, &id_dev_handle);
-    if (ret != ESP_OK) {
-        ESP_LOGE(I2C_TAG, "Failed to add device for identifier request: %s", esp_err_to_name(ret));
+bool i2c_read_slave_identifier(int node_index) {
+    if (node_index < 0 || node_index >= MAX_SUB_NODES) {
+        ESP_LOGE(I2C_TAG, "Invalid node index: %d", node_index);
         return false;
     }
+
+    if (sub_nodes[node_index].status == SUB_NODE_DISCONNECTED) {
+        ESP_LOGE(I2C_TAG, "Node %d is not connected", node_index);
+        return false;
+    }
+
+    ESP_LOGI(I2C_TAG, "Reading identifier from slave at address 0x%02X", sub_nodes[node_index].address);
 
     // Request the identifier from the slave
     uint8_t req_data[I2C_DATA_LEN] = {0};
     req_data[0] = msg_req_identifier;  // Message type
-    req_data[1] = 0;                   // Device index
+    req_data[1] = node_index;          // Device index
     req_data[2] = 0;                   // Data length
 
     // Send the request
-    ret = i2c_master_transmit(id_dev_handle, req_data, I2C_DATA_LEN, 100);
+    esp_err_t ret = i2c_master_transmit(sub_nodes[node_index].handle, req_data, I2C_DATA_LEN, 100);
     if (ret != ESP_OK) {
         ESP_LOGE(I2C_TAG, "Error sending identifier request: %s", esp_err_to_name(ret));
-        i2c_master_bus_rm_device(id_dev_handle);
         return false;
     }
 
@@ -164,44 +199,98 @@ bool i2c_read_slave_identifier() {
 
     // Receive the response
     uint8_t res_data[I2C_DATA_LEN] = {0};
-    ret = i2c_master_receive(id_dev_handle, res_data, I2C_DATA_LEN, 100);
+    ret = i2c_master_receive(sub_nodes[node_index].handle, res_data, I2C_DATA_LEN, 100);
     if (ret != ESP_OK) {
         ESP_LOGE(I2C_TAG, "Error receiving identifier response: %s", esp_err_to_name(ret));
-        i2c_master_bus_rm_device(id_dev_handle);
         return false;
     }
 
     // Check if the response is the expected type
     if (res_data[0] != msg_res_identifier) {
         ESP_LOGE(I2C_TAG, "Unexpected response type: %d", res_data[0]);
-        i2c_master_bus_rm_device(id_dev_handle);
         return false;
     }
 
     // Extract the identifier from the response (2 bytes)
     uint8_t data_len = res_data[2];
     if (data_len >= 2) {
-        slave_identifier = (res_data[3] << 8) | res_data[4];
-        ESP_LOGI(I2C_TAG, "Slave identifier: 0x%02X", slave_identifier);
+        sub_nodes[node_index].identifier = (res_data[3] << 8) | res_data[4];
+        ESP_LOGI(I2C_TAG, "Sub node %d identifier: 0x%02X", node_index, sub_nodes[node_index].identifier);
+        
+        // Update last seen timestamp
+        sub_nodes[node_index].last_seen = get_current_time_ms();
+        return true;
     } else {
         ESP_LOGW(I2C_TAG, "Invalid identifier data length: %d", data_len);
-        i2c_master_bus_rm_device(id_dev_handle);
+        return false;
+    }
+}
+
+int i2c_get_connected_node_count() {
+    int count = 0;
+    for (int i = 0; i < MAX_SUB_NODES; i++) {
+        if (sub_nodes[i].status != SUB_NODE_DISCONNECTED) {
+            count++;
+        }
+    }
+    return count;
+}
+
+int i2c_get_first_node_index() {
+    for (int i = 0; i < MAX_SUB_NODES; i++) {
+        if (sub_nodes[i].status != SUB_NODE_DISCONNECTED) {
+            return i;
+        }
+    }
+    return -1;  // No connected nodes
+}
+
+bool i2c_write_to_node(int node_index, uint8_t *data_wr) {
+    if (node_index < 0 || node_index >= MAX_SUB_NODES) {
+        ESP_LOGE(I2C_TAG, "Invalid node index: %d", node_index);
         return false;
     }
 
-    // Clean up the temporary device
-    i2c_master_bus_rm_device(id_dev_handle);
-    return true;
-}
+    if (sub_nodes[node_index].status == SUB_NODE_DISCONNECTED) {
+        ESP_LOGE(I2C_TAG, "Node %d is not connected", node_index);
+        return false;
+    }
 
-bool i2c_write(uint8_t *data_wr) {
-    esp_err_t ret = i2c_master_transmit(dev_handle, data_wr, I2C_DATA_LEN, 100);
+    esp_err_t ret = i2c_master_transmit(sub_nodes[node_index].handle, data_wr, I2C_DATA_LEN, 100);
 
     if (ret != ESP_OK) {
-        ESP_LOGE(I2C_TAG, "Error sending data: %s", esp_err_to_name(ret));
+        ESP_LOGE(I2C_TAG, "Error sending data to node %d: %s", node_index, esp_err_to_name(ret));
         return false;
     }
     
-    ESP_LOGI(I2C_TAG, "Data sent successfully");
+    // Update last seen timestamp and status
+    sub_nodes[node_index].last_seen = get_current_time_ms();
+    sub_nodes[node_index].status = SUB_NODE_ACTIVE;
+    
+    ESP_LOGI(I2C_TAG, "Data sent successfully to node %d", node_index);
     return true;
+}
+
+bool i2c_is_node_connected(int node_index) {
+    if (node_index < 0 || node_index >= MAX_SUB_NODES) {
+        return false;
+    }
+    return (sub_nodes[node_index].status != SUB_NODE_DISCONNECTED);
+}
+
+const sub_node_t* i2c_get_node_info(int node_index) {
+    if (node_index < 0 || node_index >= MAX_SUB_NODES) {
+        return NULL;
+    }
+    return &sub_nodes[node_index];
+}
+
+// Legacy function for backward compatibility
+bool i2c_write(uint8_t *data_wr) {
+    int first_node = i2c_get_first_node_index();
+    if (first_node < 0) {
+        ESP_LOGE(I2C_TAG, "No connected nodes available");
+        return false;
+    }
+    return i2c_write_to_node(first_node, data_wr);
 }
