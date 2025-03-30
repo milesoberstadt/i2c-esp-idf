@@ -2,21 +2,17 @@
 
 #define HEADER_LEN 3
 
-void i2c_send_message(message_t msg, uint8_t dev_idx) {
-    i2c_send_message_data(msg, dev_idx, NULL, 0);
-}
-
-void i2c_send_message_data(message_t msg, uint8_t dev_idx, uint8_t *data, size_t data_len) {
+// Helper function to prepare message data
+static uint8_t* prepare_message_data(message_t msg, uint8_t dev_idx, uint8_t *data, size_t data_len) {
     if (data_len > I2C_DATA_LEN - HEADER_LEN) {
         ESP_LOGE(I2C_MSG_TAG, "Data length exceeds maximum allowed length");
-        return;
+        return NULL;
     }
 
     uint8_t *msg_data = (uint8_t *)malloc(I2C_DATA_LEN);
-
     if (msg_data == NULL) {
         ESP_LOGE(I2C_MSG_TAG, "Failed to allocate memory for message data");
-        return;
+        return NULL;
     }
 
     msg_data[0] = msg;
@@ -31,9 +27,79 @@ void i2c_send_message_data(message_t msg, uint8_t dev_idx, uint8_t *data, size_t
         msg_data[i] = 0xFF;
     }
 
-    i2c_write(msg_data);
+    return msg_data;
+}
 
-    ESP_LOGI(I2C_MSG_TAG, "Message sent: %d", msg);
+// Legacy support - sends to first available node
+void i2c_send_message(message_t msg, uint8_t dev_idx) {
+    i2c_send_message_data(msg, dev_idx, NULL, 0);
+}
+
+void i2c_send_message_data(message_t msg, uint8_t dev_idx, uint8_t *data, size_t data_len) {
+    int first_node = i2c_get_first_node_index();
+    if (first_node < 0) {
+        ESP_LOGE(I2C_MSG_TAG, "No connected nodes available");
+        return;
+    }
+    
+    i2c_send_message_data_to_node(first_node, msg, dev_idx, data, data_len);
+}
+
+// Send to specific node by index
+void i2c_send_message_to_node(int node_index, message_t msg, uint8_t dev_idx) {
+    i2c_send_message_data_to_node(node_index, msg, dev_idx, NULL, 0);
+}
+
+void i2c_send_message_data_to_node(int node_index, message_t msg, uint8_t dev_idx, uint8_t *data, size_t data_len) {
+    if (!i2c_is_node_connected(node_index)) {
+        ESP_LOGE(I2C_MSG_TAG, "Node %d is not connected", node_index);
+        return;
+    }
+
+    uint8_t *msg_data = prepare_message_data(msg, dev_idx, data, data_len);
+    if (msg_data == NULL) {
+        return;
+    }
+
+    if (i2c_write_to_node(node_index, msg_data)) {
+        ESP_LOGI(I2C_MSG_TAG, "Message sent to node %d: type=%d", node_index, msg);
+        esp_log_buffer_hex(I2C_MSG_TAG, msg_data, I2C_DATA_LEN);
+    } else {
+        ESP_LOGE(I2C_MSG_TAG, "Failed to send message to node %d", node_index);
+    }
+
+    free(msg_data);
+}
+
+// Send to all connected nodes (broadcast)
+void i2c_broadcast_message(message_t msg, uint8_t dev_idx) {
+    i2c_broadcast_message_data(msg, dev_idx, NULL, 0);
+}
+
+void i2c_broadcast_message_data(message_t msg, uint8_t dev_idx, uint8_t *data, size_t data_len) {
+    uint8_t *msg_data = prepare_message_data(msg, dev_idx, data, data_len);
+    if (msg_data == NULL) {
+        return;
+    }
+
+    int success_count = 0;
+    int total_count = 0;
+
+    // Send to all connected nodes
+    for (int i = 0; i < MAX_SUB_NODES; i++) {
+        if (i2c_is_node_connected(i)) {
+            total_count++;
+            if (i2c_write_to_node(i, msg_data)) {
+                success_count++;
+                ESP_LOGD(I2C_MSG_TAG, "Broadcast message sent to node %d", i);
+            } else {
+                ESP_LOGW(I2C_MSG_TAG, "Failed to send broadcast message to node %d", i);
+            }
+        }
+    }
+
+    ESP_LOGI(I2C_MSG_TAG, "Broadcast message sent to %d/%d nodes: type=%d", 
+            success_count, total_count, msg);
     esp_log_buffer_hex(I2C_MSG_TAG, msg_data, I2C_DATA_LEN);
 
     free(msg_data);
