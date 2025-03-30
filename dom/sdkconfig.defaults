@@ -1,0 +1,13 @@
+# Enable I2C driver
+CONFIG_I2C_ENABLE=y
+
+# Set ESP32 log levels to INFO by default
+CONFIG_LOG_DEFAULT_LEVEL_INFO=y
+
+# Enable FreeRTOS stats formatting functions
+CONFIG_FREERTOS_USE_TRACE_FACILITY=y
+CONFIG_FREERTOS_USE_STATS_FORMATTING_FUNCTIONS=y
+
+# Set GPIO pin configuration for I2C
+CONFIG_GPIO8_PULL_UP=y
+CONFIG_GPIO9_PULL_UP=y
