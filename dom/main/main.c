@@ -54,6 +54,11 @@ void app_main(void) {
     while (retry_count < max_retries) {
         if (i2c_init()) {
             ESP_LOGI(MAIN_TAG, "I2C Master initialized successfully");
+            ESP_LOGI(MAIN_TAG, "==================================");
+            ESP_LOGI(MAIN_TAG, "FOUND SUB NODE!");
+            ESP_LOGI(MAIN_TAG, "I2C Address: 0x%02X", discovered_slave_addr);
+            ESP_LOGI(MAIN_TAG, "Identifier: 0x%02X", slave_identifier);
+            ESP_LOGI(MAIN_TAG, "==================================");
             break;
         }
         

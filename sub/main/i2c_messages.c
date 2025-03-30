@@ -45,6 +45,18 @@ void process_message(uint8_t* data, size_t length) {
             i2c_send_message_data(msg_res_data, dev_idx, dummy_data, 4);
             break;
             
+        case msg_req_identifier:
+            ESP_LOGI(I2C_MESSAGES_TAG, "Identifier request received from dom node");
+            
+            // Prepare identifier response (2 bytes for identifier)
+            uint8_t id_data[2];
+            id_data[0] = (device_identifier >> 8) & 0xFF;  // High byte
+            id_data[1] = device_identifier & 0xFF;         // Low byte
+            
+            // Send response back to master
+            i2c_send_message_data(msg_res_identifier, dev_idx, id_data, 2);
+            break;
+            
         default:
             ESP_LOGI(I2C_MESSAGES_TAG, "Unknown message type received: %d", msg_type);
             break;

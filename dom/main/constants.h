@@ -6,6 +6,7 @@
 #define I2C_MASTER_SDA_IO           21  /* Changed from 8 to 21 */
 #define I2C_PORT_NUM                I2C_NUM_0  /* Now using I2C_NUM_0 */
 
+// Legacy fixed address - not used anymore but kept for reference
 #define I2C_SUB_SLAVE_ADDR          0x28
 
 #define I2C_DATA_LEN                32
