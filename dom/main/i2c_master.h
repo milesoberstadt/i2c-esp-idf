@@ -36,7 +36,7 @@ typedef enum {
 // Structure to hold information about a sub node
 typedef struct {
     uint8_t address;             // I2C address
-    uint16_t identifier;         // Device identifier
+    uint8_t identifier;          // Device identifier (single byte)
     i2c_master_dev_handle_t handle;  // Device handle
     sub_node_status_t status;    // Connection status
     uint32_t last_seen;          // Timestamp of last communication

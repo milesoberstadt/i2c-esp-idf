@@ -58,26 +58,32 @@ void process_message(uint8_t* data, size_t length) {
             
         case msg_req_identifier:
             ESP_LOGI(I2C_MESSAGES_TAG, "Identified an identifier request message");
-            // TODO: I think this is being read correctly, but I should change this to be a single byte
-            // Prepare identifier response (2 bytes for identifier)
-            uint8_t id_data[2];
-            id_data[0] = (device_identifier >> 8) & 0xFF; // High byte
-            id_data[1] = device_identifier & 0xFF;        // Low byte
+            // Prepare identifier response (1 byte for identifier)
+            uint8_t id_data[1] = {device_identifier};
             // Send response back to master
-            i2c_send_message_data(msg_res_identifier, 0, id_data, 2);
+            i2c_send_message_data(msg_res_identifier, 0, id_data, 1);
             break;
 
         case msg_set_wifi_channel:
             ESP_LOGI(I2C_MESSAGES_TAG, "Identified a WiFi channel assignment message");
-            if (msg_len >= 1) {
-                uint8_t wifi_channel = data[HEADER_LEN];
-                ESP_LOGI(I2C_MESSAGES_TAG, "Received WiFi channel assignment: %d", wifi_channel);
+            if (msg_len >= 2) { // Need at least identifier + channel data
+                uint8_t target_identifier = data[HEADER_LEN];
+                uint8_t wifi_channel = data[HEADER_LEN + 1];
                 
-                // Here you would configure the WiFi channel for this device
-                // For now we just log it
-                ESP_LOGI(I2C_MESSAGES_TAG, "WiFi channel %d assigned to sub node", wifi_channel);
+                // Verify this message is intended for this device
+                if (target_identifier == device_identifier) {
+                    ESP_LOGI(I2C_MESSAGES_TAG, "Verified message is for this device (ID: 0x%02X)", device_identifier);
+                    ESP_LOGI(I2C_MESSAGES_TAG, "Received WiFi channel assignment: %d", wifi_channel);
+                    
+                    // Here you would configure the WiFi channel for this device
+                    // For now we just log it
+                    ESP_LOGI(I2C_MESSAGES_TAG, "WiFi channel %d assigned to sub node", wifi_channel);
+                } else {
+                    ESP_LOGW(I2C_MESSAGES_TAG, "Message intended for device 0x%02X, not for this device (0x%02X)", 
+                             target_identifier, device_identifier);
+                }
             } else {
-                ESP_LOGW(I2C_MESSAGES_TAG, "Received WiFi channel message with no channel data");
+                ESP_LOGW(I2C_MESSAGES_TAG, "Received WiFi channel message with insufficient data");
             }
             break;
             

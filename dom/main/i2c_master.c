@@ -14,7 +14,7 @@ sub_node_t sub_nodes[MAX_SUB_NODES];
 
 // For backward compatibility with legacy code
 uint8_t discovered_slave_addr = 0;
-uint16_t slave_identifier = 0;
+uint8_t slave_identifier = 0;
 i2c_master_dev_handle_t dev_handle;
 
 // Get current timestamp in milliseconds for activity tracking
@@ -211,10 +211,10 @@ bool i2c_read_slave_identifier(int node_index) {
         return false;
     }
 
-    // Extract the identifier from the response (2 bytes)
+    // Extract the identifier from the response (single byte)
     uint8_t data_len = res_data[2];
-    if (data_len >= 2) {
-        sub_nodes[node_index].identifier = (res_data[3] << 8) | res_data[4];
+    if (data_len >= 1) {
+        sub_nodes[node_index].identifier = res_data[3];
         ESP_LOGI(I2C_TAG, "Sub node %d identifier: 0x%02X", node_index, sub_nodes[node_index].identifier);
         
         // Update last seen timestamp

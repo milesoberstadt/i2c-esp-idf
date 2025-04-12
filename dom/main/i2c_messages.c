@@ -116,10 +116,23 @@ void i2c_set_sub_wifi_channel(int node_index, uint8_t channel) {
         return;
     }
 
-    ESP_LOGI(I2C_MSG_TAG, "Setting WiFi channel %d for sub node %d", channel, node_index);
+    // Get the node info to access the identifier
+    const sub_node_t* node_info = i2c_get_node_info(node_index);
+    if (node_info == NULL) {
+        ESP_LOGE(I2C_MSG_TAG, "Failed to get node info for node %d", node_index);
+        return;
+    }
+
+    ESP_LOGI(I2C_MSG_TAG, "Setting WiFi channel %d for sub node %d (identifier: 0x%02X)", 
+             channel, node_index, node_info->identifier);
     
-    uint8_t channel_data[1] = {channel};
-    i2c_send_message_data_to_node(node_index, msg_set_wifi_channel, 0, channel_data, 1);
+    // Send both identifier and channel data
+    uint8_t data[2] = {
+        node_info->identifier,  // Target device identifier
+        channel                // WiFi channel
+    };
+    
+    i2c_send_message_data_to_node(node_index, msg_set_wifi_channel, 0, data, 2);
 }
 
 void process_message(uint8_t* data, size_t length) {

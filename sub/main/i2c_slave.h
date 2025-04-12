@@ -22,7 +22,7 @@
 #define I2C_SLAVE_TAG "I2C_Slave"
 
 extern uint8_t i2c_slave_addr;     // Dynamic I2C slave address
-extern uint16_t device_identifier; // Random device identifier
+extern uint8_t device_identifier;  // Random device identifier (single byte)
 
 void i2c_slave_init();
 void i2c_start_receive();
