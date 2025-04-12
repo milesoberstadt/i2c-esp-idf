@@ -7,7 +7,7 @@ uint8_t *data_rd;
 
 // Define the global variables
 uint8_t i2c_slave_addr;     // Dynamic I2C slave address
-uint16_t device_identifier; // Random device identifier
+uint8_t device_identifier;  // Random device identifier (single byte)
 
 static IRAM_ATTR bool i2c_slave_rx_done_callback(i2c_slave_dev_handle_t channel, const i2c_slave_rx_done_event_data_t *edata, void *user_data)
 {
@@ -23,7 +23,7 @@ void i2c_slave_init() {
     // Generate random I2C slave address between MIN and MAX (inclusive)
     i2c_slave_addr = (esp_random() % (I2C_SLAVE_ADDR_MAX - I2C_SLAVE_ADDR_MIN + 1)) + I2C_SLAVE_ADDR_MIN;
     
-    // Generate random 2-digit hex identifier (0x00 - 0xFF)
+    // Generate random 1-byte device identifier (0x00 - 0xFF)
     device_identifier = esp_random() % 0x100;
     
     ESP_LOGI(I2C_SLAVE_TAG, "Generated random device ID: 0x%02X", device_identifier);
