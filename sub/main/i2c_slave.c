@@ -79,10 +79,15 @@ void i2c_receive_task(void *pvParameters) {
     
     while (1) {
         ESP_LOGD(I2C_SLAVE_TAG, "Waiting for I2C data...");
+
+        // Clear buffer before receiving data
+        memset(data_rd, 0, I2C_DATA_LEN);
+
         esp_err_t ret = i2c_slave_receive(slave_handle, data_rd, I2C_DATA_LEN);
         
         if (ret == ESP_OK) {
-            ESP_LOGI(I2C_SLAVE_TAG, "Data received successfully");
+            // Successful receive - just keep count of successes at debug level
+            ESP_LOGD(I2C_SLAVE_TAG, "Data received successfully from master");
             error_count = 0;  // Reset error counter on success
         } else {
             error_count++;
@@ -108,8 +113,10 @@ void i2c_process_queue_task(void *pvParameters) {
     
     while (1) {
         if (xQueueReceive(s_receive_queue, &rx_data, portMAX_DELAY) == pdTRUE) {
-            ESP_LOGI(I2C_SLAVE_TAG, "Received data from master");
-            process_message(rx_data.buffer, I2C_DATA_LEN);
+            // Process the received message
+            uint8_t buf[I2C_DATA_LEN];
+            memcpy(buf, rx_data.buffer, I2C_DATA_LEN);
+            process_message(buf, I2C_DATA_LEN);
         }
     }
 }
@@ -126,14 +133,51 @@ bool i2c_slave_send(uint8_t* data, size_t length) {
         return false;
     }
 
-    ESP_LOGI(I2C_SLAVE_TAG, "Sending data to master");
-    esp_err_t ret = i2c_slave_transmit(slave_handle, data, length, portMAX_DELAY);
+    ESP_LOGI(I2C_SLAVE_TAG, "Preparing to send data to master");
 
-    if (ret != ESP_OK) {
-        ESP_LOGE(I2C_SLAVE_TAG, "Error sending data: %s", esp_err_to_name(ret));
-        return false;
+    // Check if this is an identifier message (special handling)
+    if (data[0] == msg_res_identifier) { // msg_res_identifier value
+        ESP_LOGD(I2C_SLAVE_TAG, "Sending identifier response message");
+        ESP_LOGD(I2C_SLAVE_TAG, "Message header: %02X %02X %02X", data[0], data[1], data[2]);
+        ESP_LOGD(I2C_SLAVE_TAG, "Identifier data: %02X %02X", data[3], data[4]);
+    }
+
+    // Log the first few bytes we're sending
+    ESP_LOGD(I2C_SLAVE_TAG, "Sending message with first bytes: %02X %02X %02X %02X",
+            data[0], data[1], data[2], data[3]);
+
+    // Make multiple transmission attempts if needed
+    int max_attempts = 3;
+    esp_err_t ret = ESP_FAIL;
+
+    // if we want to fail back to single attempts, here was the working code
+    // ESP_LOGI(I2C_SLAVE_TAG, "Sending data to master");
+    // esp_err_t ret = i2c_slave_transmit(slave_handle, data, length, portMAX_DELAY);
+    // if (ret != ESP_OK) {
+    //     ESP_LOGE(I2C_SLAVE_TAG, "Error sending data: %s", esp_err_to_name(ret));
+    //     return false;
+    // }
+    // ESP_LOGI(I2C_SLAVE_TAG, "Data sent successfully");
+    // return true;
+
+    for (int i = 0; i < max_attempts; i++) {
+        ret = i2c_slave_transmit(slave_handle, data, length, portMAX_DELAY);
+
+        if (ret == ESP_OK) {
+            ESP_LOGI(I2C_SLAVE_TAG, "Data sent successfully on attempt %d", i+1);
+
+            // Add a small delay to ensure master can process the message
+            vTaskDelay(pdMS_TO_TICKS(10));
+            return true;
+        } else {
+            ESP_LOGE(I2C_SLAVE_TAG, "Error sending data (attempt %d/%d): %s",
+                    i+1, max_attempts, esp_err_to_name(ret));
+
+            // Wait a bit before retrying
+            vTaskDelay(pdMS_TO_TICKS(50));
+        }
     }
     
-    ESP_LOGI(I2C_SLAVE_TAG, "Data sent successfully");
-    return true;
+    ESP_LOGE(I2C_SLAVE_TAG, "Failed to send data after %d attempts", max_attempts);
+    return false;
 }

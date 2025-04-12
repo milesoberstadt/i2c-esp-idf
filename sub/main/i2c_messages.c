@@ -8,14 +8,25 @@ void process_message(uint8_t* data, size_t length) {
         return;
     }
 
-    esp_log_buffer_hex(I2C_MESSAGES_TAG, data, length);
+    // Skip message processing when the first 4 bytes are all zeros
+    if (data[0] == 0 && data[1] == 0 && data[2] == 0 && data[3] == 0) {
+        ESP_LOGD(I2C_MESSAGES_TAG, "Skipping empty message (first 4 bytes are zero)");
+        return;
+    }
+
+    // First, log the raw message for debugging
+    ESP_LOGI(I2C_MESSAGES_TAG, "Raw message received:");
+    ESP_LOG_BUFFER_HEX(I2C_MESSAGES_TAG, data, (length < 16) ? length : 16);
+    // Log message details for other message types
+    // ESP_LOGI(I2C_MESSAGES_TAG, "Message type: 0x%02X, bytes[0-3]: 0x%02X 0x%02X 0x%02X 0x%02X",
+    //             data[0], data[0], data[1], data[2], data[3]);
 
     uint8_t msg_type = data[0];
     uint8_t dev_idx = data[1];
     uint8_t msg_len = data[2];
 
-    ESP_LOGI(I2C_MESSAGES_TAG, "Message received - type: %d, device: %d, length: %d", 
-             msg_type, dev_idx, msg_len);
+    // ESP_LOGI(I2C_MESSAGES_TAG, "Message received - type: %d, device: %d, length: %d", 
+    //          msg_type, dev_idx, msg_len);
 
     // Handle devices message
     switch (msg_type) {
@@ -31,7 +42,7 @@ void process_message(uint8_t* data, size_t length) {
             ESP_LOGI(I2C_MESSAGES_TAG, "Data received from dom node");
             if (msg_len > 0) {
                 ESP_LOGI(I2C_MESSAGES_TAG, "Received data:");
-                esp_log_buffer_hex(I2C_MESSAGES_TAG, data + HEADER_LEN, msg_len);
+                ESP_LOG_BUFFER_HEX_LEVEL(I2C_MESSAGES_TAG, data + HEADER_LEN, msg_len, ESP_LOG_DEBUG);
             }
             break;
             
@@ -46,18 +57,18 @@ void process_message(uint8_t* data, size_t length) {
             break;
             
         case msg_req_identifier:
-            ESP_LOGI(I2C_MESSAGES_TAG, "Identifier request received from dom node");
-            
+            ESP_LOGI(I2C_MESSAGES_TAG, "Identified an identifier request message");
+            // TODO: I think this is being read correctly, but I should change this to be a single byte
             // Prepare identifier response (2 bytes for identifier)
             uint8_t id_data[2];
-            id_data[0] = (device_identifier >> 8) & 0xFF;  // High byte
-            id_data[1] = device_identifier & 0xFF;         // Low byte
-            
+            id_data[0] = (device_identifier >> 8) & 0xFF; // High byte
+            id_data[1] = device_identifier & 0xFF;        // Low byte
             // Send response back to master
-            i2c_send_message_data(msg_res_identifier, dev_idx, id_data, 2);
+            i2c_send_message_data(msg_res_identifier, 0, id_data, 2);
             break;
-            
+
         case msg_set_wifi_channel:
+            ESP_LOGI(I2C_MESSAGES_TAG, "Identified a WiFi channel assignment message");
             if (msg_len >= 1) {
                 uint8_t wifi_channel = data[HEADER_LEN];
                 ESP_LOGI(I2C_MESSAGES_TAG, "Received WiFi channel assignment: %d", wifi_channel);
@@ -89,6 +100,10 @@ void i2c_send_message_data(message_t msg, uint8_t dev_idx, uint8_t *data, size_t
         return;
     }
 
+    // Clear buffer completely before building the message
+    memset(msg_data, 0, I2C_DATA_LEN);
+
+    // Build the message header
     msg_data[0] = msg;
     msg_data[1] = dev_idx;
     msg_data[2] = data_len;
@@ -97,15 +112,19 @@ void i2c_send_message_data(message_t msg, uint8_t dev_idx, uint8_t *data, size_t
         memcpy(msg_data + HEADER_LEN, data, data_len);
     }
 
+    // Fill rest with padding
     for (size_t i = HEADER_LEN + data_len; i < I2C_DATA_LEN; i++) {
         msg_data[i] = 0xFF;
     }
 
+    // Send the message
+    ESP_LOGI(I2C_MESSAGES_TAG, "Sending message type: %d (0x%02X), length: %d",
+            msg, msg, data_len);
+    ESP_LOG_BUFFER_HEX(I2C_MESSAGES_TAG, msg_data, I2C_DATA_LEN);
+
     i2c_slave_send(msg_data, I2C_DATA_LEN);
 
-    ESP_LOGI(I2C_MESSAGES_TAG, "Message sent: %d", msg);
-    esp_log_buffer_hex(I2C_MESSAGES_TAG, msg_data, I2C_DATA_LEN);
-
+    // Free allocated memory
     free(msg_data);
 }
 
