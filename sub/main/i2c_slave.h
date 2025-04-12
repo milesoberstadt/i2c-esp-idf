@@ -16,6 +16,7 @@
 #include "driver/i2c_slave.h"
 #include "driver/i2c_types.h"
 
+#include "types.h"
 #include "constants.h"
 
 #define I2C_SLAVE_TAG "I2C_Slave"
