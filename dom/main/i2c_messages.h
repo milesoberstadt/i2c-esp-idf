@@ -26,6 +26,9 @@ void i2c_send_message_data_to_node(int node_index, message_t msg, uint8_t dev_id
 void i2c_broadcast_message(message_t msg, uint8_t dev_idx);
 void i2c_broadcast_message_data(message_t msg, uint8_t dev_idx, uint8_t *data, size_t len);
 
+// Set WiFi channel for a specific sub node
+void i2c_set_sub_wifi_channel(int node_index, uint8_t channel);
+
 // Process received messages
 void process_message(uint8_t* data, size_t length);
 

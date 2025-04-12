@@ -52,7 +52,7 @@ void i2c_slave_init() {
     }
     ESP_LOGI(I2C_SLAVE_TAG, "I2C slave device created successfully");
 
-    s_receive_queue = xQueueCreate(1, sizeof(i2c_slave_rx_done_event_data_t));
+    s_receive_queue = xQueueCreate(8, sizeof(i2c_slave_rx_done_event_data_t));
     if (s_receive_queue == NULL) {
         ESP_LOGE(I2C_SLAVE_TAG, "Failed to create I2C receive queue");
         return;

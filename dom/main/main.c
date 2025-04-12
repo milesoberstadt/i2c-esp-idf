@@ -101,6 +101,26 @@ void app_main(void) {
     // Send initialization messages to all connected sub nodes
     i2c_broadcast_message(msg_init_start, 0);
     vTaskDelay(pdMS_TO_TICKS(100));
+    
+    // Assign WiFi channels to nodes based on priority order
+    const uint8_t wifi_channels[] = {6, 1, 11, 3, 4, 8, 9, 2, 5, 7, 10};
+    const int num_channels = sizeof(wifi_channels) / sizeof(wifi_channels[0]);
+    int assigned_count = 0;
+    
+    ESP_LOGI(MAIN_TAG, "Assigning WiFi channels to sub nodes...");
+    
+    for (int i = 0; i < MAX_SUB_NODES && assigned_count < num_channels; i++) {
+        if (i2c_is_node_connected(i)) {
+            uint8_t channel = wifi_channels[assigned_count];
+            i2c_set_sub_wifi_channel(i, channel);
+            ESP_LOGI(MAIN_TAG, "Assigned WiFi channel %d to sub node %d", channel, i);
+            assigned_count++;
+            vTaskDelay(pdMS_TO_TICKS(50)); // Small delay between assignments
+        }
+    }
+    
+    ESP_LOGI(MAIN_TAG, "Assigned WiFi channels to %d sub nodes", assigned_count);
+    
     i2c_broadcast_message(msg_init_end, 0);
     
     // Create task to send dummy data periodically

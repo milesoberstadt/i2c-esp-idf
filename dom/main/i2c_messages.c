@@ -105,6 +105,23 @@ void i2c_broadcast_message_data(message_t msg, uint8_t dev_idx, uint8_t *data, s
     free(msg_data);
 }
 
+void i2c_set_sub_wifi_channel(int node_index, uint8_t channel) {
+    if (node_index < 0 || node_index >= MAX_SUB_NODES) {
+        ESP_LOGE(I2C_MSG_TAG, "Invalid node index: %d", node_index);
+        return;
+    }
+
+    if (!i2c_is_node_connected(node_index)) {
+        ESP_LOGE(I2C_MSG_TAG, "Node %d is not connected", node_index);
+        return;
+    }
+
+    ESP_LOGI(I2C_MSG_TAG, "Setting WiFi channel %d for sub node %d", channel, node_index);
+    
+    uint8_t channel_data[1] = {channel};
+    i2c_send_message_data_to_node(node_index, msg_set_wifi_channel, 0, channel_data, 1);
+}
+
 void process_message(uint8_t* data, size_t length) {
     if (data == NULL || length == 0) {
         ESP_LOGE(I2C_MSG_TAG, "Invalid data received");

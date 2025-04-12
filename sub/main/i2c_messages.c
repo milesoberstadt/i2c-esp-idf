@@ -57,6 +57,19 @@ void process_message(uint8_t* data, size_t length) {
             i2c_send_message_data(msg_res_identifier, dev_idx, id_data, 2);
             break;
             
+        case msg_set_wifi_channel:
+            if (msg_len >= 1) {
+                uint8_t wifi_channel = data[HEADER_LEN];
+                ESP_LOGI(I2C_MESSAGES_TAG, "Received WiFi channel assignment: %d", wifi_channel);
+                
+                // Here you would configure the WiFi channel for this device
+                // For now we just log it
+                ESP_LOGI(I2C_MESSAGES_TAG, "WiFi channel %d assigned to sub node", wifi_channel);
+            } else {
+                ESP_LOGW(I2C_MESSAGES_TAG, "Received WiFi channel message with no channel data");
+            }
+            break;
+            
         default:
             ESP_LOGI(I2C_MESSAGES_TAG, "Unknown message type received: %d", msg_type);
             break;
