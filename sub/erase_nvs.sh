@@ -1,0 +1,1 @@
+parttool.py erase_partition --partition-name=nvs

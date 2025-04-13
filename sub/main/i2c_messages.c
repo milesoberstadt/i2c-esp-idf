@@ -100,7 +100,7 @@ void process_message(uint8_t* data, size_t length) {
                 // Change the I2C address
                 // This will delete the current slave device and create a new one with the new address
                 if (i2c_slave_change_address(new_i2c_address)) {
-                    ESP_LOGI(I2C_MESSAGES_TAG, "Address saved to NVS. Rebooting in 3 seconds to apply changes...");
+                    ESP_LOGI(I2C_MESSAGES_TAG, "Address saved to NVS. Rebooting in 300 ms to apply changes...");
                     vTaskDelay(pdMS_TO_TICKS(300));
                     esp_restart();
                 } else {

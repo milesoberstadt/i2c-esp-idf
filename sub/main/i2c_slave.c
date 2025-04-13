@@ -9,9 +9,6 @@ uint8_t *data_rd;
 uint8_t i2c_slave_addr;     // Dynamic I2C slave address
 uint8_t device_identifier;  // Random device identifier (single byte)
 
-// Flag to indicate an address change is in progress
-static bool address_change_pending = false;
-
 static IRAM_ATTR bool i2c_slave_rx_done_callback(i2c_slave_dev_handle_t channel, const i2c_slave_rx_done_event_data_t *edata, void *user_data)
 {
     BaseType_t high_task_wakeup = pdFALSE;
@@ -241,44 +238,14 @@ bool i2c_slave_change_address(uint8_t new_address) {
     
     ESP_LOGI(I2C_SLAVE_TAG, "Changing I2C slave address from 0x%02X to 0x%02X", i2c_slave_addr, new_address);
     
-    // Set the flag that we're changing address
-    address_change_pending = true;
-    
     // Store the new address
     i2c_slave_addr = new_address;
-    
-    // Delete the old slave device handle
-    if (slave_handle != NULL) {
-        ESP_LOGI(I2C_SLAVE_TAG, "Deleting old I2C slave device");
-        
-        // First, unregister the callback
-        i2c_slave_event_callbacks_t cbs = {0};
-        esp_err_t ret = i2c_slave_register_event_callbacks(slave_handle, &cbs, NULL);
-        if (ret != ESP_OK) {
-            ESP_LOGW(I2C_SLAVE_TAG, "Error unregistering callbacks: %s", esp_err_to_name(ret));
-        }
-        
-        // Then delete the device
-        ret = i2c_del_slave_device(slave_handle);
-        if (ret != ESP_OK) {
-            ESP_LOGE(I2C_SLAVE_TAG, "Error deleting slave device: %s", esp_err_to_name(ret));
-            return false;
-        }
-        
-        slave_handle = NULL;
-    }
-    return true;
+    return save_config_to_nvs();
 }
 
 bool i2c_slave_send(uint8_t* data, size_t length) {
     if (data == NULL || length == 0) {
         ESP_LOGE(I2C_SLAVE_TAG, "Invalid data to send");
-        return false;
-    }
-    
-    // Don't try to send if we're in the middle of an address change
-    if (address_change_pending) {
-        ESP_LOGW(I2C_SLAVE_TAG, "Address change in progress, not sending data");
         return false;
     }
 
