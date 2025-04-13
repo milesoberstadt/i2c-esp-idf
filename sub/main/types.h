@@ -13,6 +13,7 @@ typedef enum message_t {
     msg_res_data = 0x21,
     msg_req_identifier = 0x30,
     msg_res_identifier = 0x31,
+    msg_set_i2c_address = 0x38,   // New message for I2C address reassignment
     msg_set_wifi_channel = 0x40,
 } message_t;
 

@@ -26,6 +26,12 @@ void i2c_send_message_data_to_node(int node_index, message_t msg, uint8_t dev_id
 void i2c_broadcast_message(message_t msg, uint8_t dev_idx);
 void i2c_broadcast_message_data(message_t msg, uint8_t dev_idx, uint8_t *data, size_t len);
 
+// Set I2C address for a specific sub node
+void i2c_set_sub_i2c_address(int node_index, uint8_t new_address);
+
+// Reassign I2C addresses for all connected nodes (1-20 range)
+void i2c_reassign_all_i2c_addresses();
+
 // Set WiFi channel for a specific sub node
 void i2c_set_sub_wifi_channel(int node_index, uint8_t channel);
 

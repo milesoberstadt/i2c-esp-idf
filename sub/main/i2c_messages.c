@@ -73,6 +73,43 @@ void process_message(uint8_t* data, size_t length) {
             // Send response back to master
             i2c_send_message_data(msg_res_data, dev_idx, dummy_data, 4);
             break;
+            
+        case msg_set_i2c_address:
+            ESP_LOGI(I2C_MESSAGES_TAG, "Identified an I2C address reassignment message");
+            if (msg_len >= 1) { // Need at least the address data
+                uint8_t new_i2c_address = data[HEADER_LEN];
+                
+                ESP_LOGI(I2C_MESSAGES_TAG, "Received I2C address reassignment: 0x%02X", new_i2c_address);
+                
+                // First print a more verbose message about current status
+                ESP_LOGI(I2C_MESSAGES_TAG, "Preparing to change I2C address from 0x%02X to 0x%02X", 
+                         i2c_slave_addr, new_i2c_address);
+                
+                // Add a short delay before sending acknowledgment
+                vTaskDelay(pdMS_TO_TICKS(50));
+                
+                // Send acknowledgment back to the master before changing the address
+                ESP_LOGI(I2C_MESSAGES_TAG, "Sending acknowledgment before changing I2C address");
+                uint8_t ack_data[1] = {new_i2c_address};
+                i2c_send_message_data(msg_res_data, dev_idx, ack_data, 1);
+                
+                // Longer delay to allow the master to receive the response and be ready
+                // for the slave device to disappear from its current address
+                vTaskDelay(pdMS_TO_TICKS(200));
+                
+                // Change the I2C address
+                // This will delete the current slave device and create a new one with the new address
+                if (i2c_slave_change_address(new_i2c_address)) {
+                    ESP_LOGI(I2C_MESSAGES_TAG, "Address saved to NVS. Rebooting in 3 seconds to apply changes...");
+                    vTaskDelay(pdMS_TO_TICKS(300));
+                    esp_restart();
+                } else {
+                    ESP_LOGE(I2C_MESSAGES_TAG, "Failed to change I2C address to 0x%02X", new_i2c_address);
+                }
+            } else {
+                ESP_LOGW(I2C_MESSAGES_TAG, "Received I2C address reassignment message with insufficient data");
+            }
+            break;
 
         case msg_set_wifi_channel:
             ESP_LOGI(I2C_MESSAGES_TAG, "Identified a WiFi channel assignment message");
