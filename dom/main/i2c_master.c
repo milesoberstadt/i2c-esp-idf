@@ -24,9 +24,81 @@ static uint32_t get_current_time_ms() {
     return (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
 }
 
+// Clean up device handles but keep the I2C bus
+bool i2c_reset_devices() {
+    ESP_LOGI(I2C_TAG, "Resetting I2C device connections...");
+    
+    // Remove all device handles but keep the bus
+    for (int i = 0; i < MAX_SUB_NODES; i++) {
+        if (sub_nodes[i].handle != NULL) {
+            ESP_LOGI(I2C_TAG, "Removing I2C device handle for node %d (addr: 0x%02X)", 
+                     i, sub_nodes[i].address);
+            esp_err_t ret = i2c_master_bus_rm_device(sub_nodes[i].handle);
+            if (ret != ESP_OK) {
+                ESP_LOGW(I2C_TAG, "Error removing device handle for node %d: %s", 
+                         i, esp_err_to_name(ret));
+            }
+            sub_nodes[i].handle = NULL;
+        }
+        
+        // Reset node information but preserve identifiers
+        uint8_t saved_identifier = sub_nodes[i].identifier;
+        sub_nodes[i].address = 0;
+        sub_nodes[i].status = SUB_NODE_DISCONNECTED;
+        sub_nodes[i].last_seen = 0;
+        
+        // Only preserve identifiers for nodes that were previously connected
+        if (saved_identifier != 0) {
+            ESP_LOGI(I2C_TAG, "Preserving identifier 0x%02X for node %d", saved_identifier, i);
+            sub_nodes[i].identifier = saved_identifier;
+        }
+    }
+    
+    // Clean up the temporary device handle if it exists
+    if (temp_dev_handle != NULL) {
+        ESP_LOGI(I2C_TAG, "Removing temporary I2C device handle");
+        i2c_master_bus_rm_device(temp_dev_handle);
+        temp_dev_handle = NULL;
+    }
+    
+    ESP_LOGI(I2C_TAG, "I2C device connections reset complete");
+    return true;
+}
+
+// Full deinitialization - only needed when completely shutting down I2C
+bool i2c_deinit() {
+    ESP_LOGI(I2C_TAG, "Deinitializing I2C master...");
+    
+    // First reset all devices
+    i2c_reset_devices();
+    
+    // Then delete the bus handle
+    if (bus_handle != NULL) {
+        ESP_LOGI(I2C_TAG, "Deleting I2C master bus");
+        esp_err_t ret = i2c_del_master_bus(bus_handle);
+        if (ret != ESP_OK) {
+            ESP_LOGE(I2C_TAG, "Error deleting I2C master bus: %s", esp_err_to_name(ret));
+            return false;
+        }
+        bus_handle = NULL;
+    }
+    
+    ESP_LOGI(I2C_TAG, "I2C master deinitialization complete");
+    return true;
+}
+
 bool i2c_init() {
     ESP_LOGI(I2C_TAG, "Initializing I2C master on port %d, SDA: %d, SCL: %d", 
              I2C_PORT_NUM, I2C_MASTER_SDA_IO, I2C_MASTER_SCL_IO);
+
+    // First ensure any existing I2C bus is deinitialized
+    if (bus_handle != NULL) {
+        ESP_LOGW(I2C_TAG, "I2C bus already initialized, deinitializing first");
+        if (!i2c_deinit()) {
+            ESP_LOGE(I2C_TAG, "Failed to deinitialize existing I2C bus");
+            return false;
+        }
+    }
 
     // Initialize sub nodes array
     for (int i = 0; i < MAX_SUB_NODES; i++) {
@@ -73,13 +145,93 @@ bool i2c_init() {
 }
 
 bool i2c_scan_for_slaves() {
-    ESP_LOGI(I2C_TAG, "Scanning for I2C slave devices in range 0x%02X - 0x%02X", 
+    ESP_LOGI(I2C_TAG, "Scanning for I2C slave devices in initial range 0x%02X - 0x%02X", 
              I2C_SLAVE_ADDR_MIN, I2C_SLAVE_ADDR_MAX);
+    ESP_LOGI(I2C_TAG, "Also scanning reserved address range 0x%02X - 0x%02X for pre-assigned SUBs", 
+             I2C_ASSIGNED_ADDR_MIN, I2C_ASSIGNED_ADDR_MAX);
 
     int device_count = 0;
     uint16_t scanned_count = 0;
+    int assigned_count = 0;
+    int unassigned_count = 0;
     
-    // More efficient scanning with reduced log noise
+    // First, scan the assigned address range to find SUBs with saved addresses
+    ESP_LOGI(I2C_TAG, "Checking for SUBs with pre-assigned addresses");
+    for (uint8_t addr = I2C_ASSIGNED_ADDR_MIN; addr <= I2C_ASSIGNED_ADDR_MAX; addr++) {
+        scanned_count++;
+        
+        // Skip if we've already found the maximum number of devices
+        if (device_count >= MAX_SUB_NODES) {
+            ESP_LOGI(I2C_TAG, "Maximum number of devices (%d) found, stopping scan", MAX_SUB_NODES);
+            break;
+        }
+        
+        i2c_device_config_t dev_cfg = {
+            .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+            .device_address = addr,
+            .scl_speed_hz = 100000,
+        };
+
+        // Free the temporary device handle if it's not NULL
+        if (temp_dev_handle != NULL) {
+            i2c_master_bus_rm_device(temp_dev_handle);
+            temp_dev_handle = NULL;
+        }
+
+        // Try to add the device at this address
+        esp_err_t ret = i2c_master_bus_add_device(bus_handle, &dev_cfg, &temp_dev_handle);
+        if (ret != ESP_OK) {
+            continue;
+        }
+
+        // Try to write 0 bytes to detect if a device is present
+        uint8_t dummy_data[1] = {0};
+        ret = i2c_master_transmit(temp_dev_handle, dummy_data, 1, 10);
+        
+        if (ret == ESP_OK) {
+            ESP_LOGI(I2C_TAG, "Device found at ASSIGNED address 0x%02X - likely a pre-configured SUB", addr);
+            
+            // Add this device to our list
+            sub_nodes[device_count].address = addr;
+            sub_nodes[device_count].status = SUB_NODE_CONNECTED;
+            sub_nodes[device_count].last_seen = get_current_time_ms();
+
+            // Create a persistent device handle for this sub node
+            i2c_device_config_t node_cfg = {
+                .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+                .device_address = addr,
+                .scl_speed_hz = 100000,
+            };
+
+            i2c_master_dev_handle_t node_handle;
+            ret = i2c_master_bus_add_device(bus_handle, &node_cfg, &node_handle);
+            if (ret != ESP_OK) {
+                ESP_LOGE(I2C_TAG, "Failed to add device handle for pre-assigned sub node at address 0x%02X", addr);
+                continue;
+            }
+
+            sub_nodes[device_count].handle = node_handle;
+            
+            // Try to read the identifier
+            if (i2c_read_slave_identifier(device_count)) {
+                ESP_LOGI(I2C_TAG, "Pre-assigned sub node %d: address=0x%02X, identifier=0x%02X", 
+                        device_count, sub_nodes[device_count].address, sub_nodes[device_count].identifier);
+                assigned_count++;
+            } else {
+                ESP_LOGW(I2C_TAG, "Failed to read identifier for pre-assigned sub node at address 0x%02X", addr);
+            }
+            
+            device_count++;
+        }
+    }
+    
+    ESP_LOGI(I2C_TAG, "Found %d pre-assigned SUBs", assigned_count);
+    
+    // Now scan the unassigned address range
+    ESP_LOGI(I2C_TAG, "Now scanning for unassigned SUBs in range 0x%02X - 0x%02X", 
+             I2C_SLAVE_ADDR_MIN, I2C_SLAVE_ADDR_MAX);
+    scanned_count = 0;
+    
     for (uint8_t addr = I2C_SLAVE_ADDR_MIN; addr <= I2C_SLAVE_ADDR_MAX; addr++) {
         scanned_count++;
         
@@ -164,7 +316,11 @@ bool i2c_scan_for_slaves() {
         return false;
     }
 
-    ESP_LOGI(I2C_TAG, "Found %d I2C slave device(s)", device_count);
+    // Count how many devices were found in the unassigned range
+    unassigned_count = device_count - assigned_count;
+    
+    ESP_LOGI(I2C_TAG, "Scan complete: Found %d total I2C slave devices (%d pre-assigned, %d unassigned)", 
+             device_count, assigned_count, unassigned_count);
     return true;
 }
 

@@ -15,6 +15,7 @@
 
 #include "driver/i2c_slave.h"
 #include "driver/i2c_types.h"
+#include "nvs.h"
 
 #include "types.h"
 #include "constants.h"
@@ -27,5 +28,11 @@ extern uint8_t device_identifier;  // Random device identifier (single byte)
 void i2c_slave_init();
 void i2c_start_receive();
 bool i2c_slave_send(uint8_t* data, size_t length);
+
+// Function to recreate the I2C slave device with a new address
+bool i2c_slave_change_address(uint8_t new_address);
+
+// Save current I2C config to NVS
+bool save_config_to_nvs(void);
 
 #endif // __I2C_SLAVE_H__

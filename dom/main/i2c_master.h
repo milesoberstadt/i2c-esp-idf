@@ -19,9 +19,13 @@
 
 #define I2C_TAG "I2C_Master"
 
-// Min and max I2C addresses to scan for the slave
-#define I2C_SLAVE_ADDR_MIN   0x14  // 20 decimal
-#define I2C_SLAVE_ADDR_MAX   0x78  // 120 decimal
+// Min and max I2C addresses to scan for the slave (initial unassigned subs)
+#define I2C_SLAVE_ADDR_MIN   0x1F  // 31 decimal
+#define I2C_SLAVE_ADDR_MAX   0x77  // 119 decimal
+
+// Range for assigned I2C addresses (verified subs)
+#define I2C_ASSIGNED_ADDR_MIN   0x0A  // 10 decimal
+#define I2C_ASSIGNED_ADDR_MAX   0x1E  // 30 decimal
 
 // Maximum number of sub nodes that can be connected
 #define MAX_SUB_NODES        11
@@ -44,6 +48,12 @@ typedef struct {
 
 // Initialize the I2C master and device pool
 bool i2c_init();
+
+// Reset the I2C devices but keep the bus (for address reassignment)
+bool i2c_reset_devices();
+
+// Deinitialize the I2C master (cleanup all resources)
+bool i2c_deinit();
 
 // Scan for sub nodes in the specified address range
 bool i2c_scan_for_slaves();

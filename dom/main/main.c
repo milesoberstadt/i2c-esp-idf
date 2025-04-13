@@ -102,12 +102,50 @@ void app_main(void) {
     i2c_broadcast_message(msg_init_start, 0);
     vTaskDelay(pdMS_TO_TICKS(100));
     
-    // Assign WiFi channels to nodes based on priority order
+    // First, reassign I2C addresses for all connected nodes
+    ESP_LOGI(MAIN_TAG, "Reassigning I2C addresses for all sub nodes (range 0x0A-0x1E)...");
+    i2c_reassign_all_i2c_addresses();
+    
+    // After address reassignment, wait for sub nodes to stabilize with new addresses
+    ESP_LOGI(MAIN_TAG, "Waiting for sub nodes to stabilize with new addresses...");
+    vTaskDelay(pdMS_TO_TICKS(500)); // Give the slaves time to complete their address changes
+    
+    // Reset the I2C device connections but keep the bus intact
+    ESP_LOGI(MAIN_TAG, "Resetting I2C device connections before scanning for new addresses...");
+    i2c_reset_devices();
+    
+    // Brief delay before starting the scan
+    vTaskDelay(pdMS_TO_TICKS(100));
+    
+    // Scan for the devices at their new addresses
+    ESP_LOGI(MAIN_TAG, "Scanning for sub nodes at their new addresses...");
+    if (!i2c_scan_for_slaves()) {
+        ESP_LOGW(MAIN_TAG, "No sub nodes found after address reassignment. Will continue anyway.");
+    } else {
+        ESP_LOGI(MAIN_TAG, "Successfully found sub nodes at their new addresses");
+    }
+    
+    // Display information about each connected node after address reassignment
+    int node_count = i2c_get_connected_node_count();
+    ESP_LOGI(MAIN_TAG, "==================================");
+    ESP_LOGI(MAIN_TAG, "FOUND %d SUB NODE(S) AFTER ADDRESS REASSIGNMENT!", node_count);
+    
+    for (int i = 0; i < MAX_SUB_NODES; i++) {
+        if (i2c_is_node_connected(i)) {
+            const sub_node_t* node = i2c_get_node_info(i);
+            ESP_LOGI(MAIN_TAG, "Node %d: Address=0x%02X, Identifier=0x%02X", 
+                    i, node->address, node->identifier);
+        }
+    }
+    ESP_LOGI(MAIN_TAG, "==================================");
+    
+    // Now assign WiFi channels to all connected nodes
+    ESP_LOGI(MAIN_TAG, "Assigning WiFi channels to sub nodes...");
+    
+    // Use the standard WiFi channel priority order
     const uint8_t wifi_channels[] = {6, 1, 11, 3, 4, 8, 9, 2, 5, 7, 10};
     const int num_channels = sizeof(wifi_channels) / sizeof(wifi_channels[0]);
     int assigned_count = 0;
-    
-    ESP_LOGI(MAIN_TAG, "Assigning WiFi channels to sub nodes...");
     
     for (int i = 0; i < MAX_SUB_NODES && assigned_count < num_channels; i++) {
         if (i2c_is_node_connected(i)) {
