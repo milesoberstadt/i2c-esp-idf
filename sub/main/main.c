@@ -4,12 +4,14 @@
 #include "freertos/task.h"
 #include "esp_system.h"
 #include "esp_log.h"
+#include "esp_event.h"
 #include "nvs_flash.h"
 
 #include "constants.h"
 #include "i2c_slave.h"
 #include "i2c_messages.h"
 #include "types.h"
+#include "wifi_sniffer.h"
 
 #define MAIN_TAG "SUB_MAIN"
 
@@ -34,6 +36,9 @@ void app_main(void) {
     
     ESP_LOGI(MAIN_TAG, "SUB node initialized successfully");
     ESP_LOGI(MAIN_TAG, "Waiting for messages from DOM node...");
+    
+    // Create a task to handle sniffer events
+    xTaskCreate(wifi_sniffer_event_handler_task, "sniffer_events", 4096, NULL, 5, NULL);
     
     // Main program loop
     while (1) {

@@ -1,4 +1,5 @@
 #include "i2c_messages.h"
+#include "wifi_sniffer.h"
 
 #define HEADER_LEN 4
 
@@ -118,10 +119,16 @@ void process_message(uint8_t* data, size_t length) {
                 
                 ESP_LOGI(I2C_MESSAGES_TAG, "Received WiFi channel assignment: %d", wifi_channel);
                 
-                // Here you would configure the WiFi channel for this device
-                // For now we just log it
+                // Start the WiFi sniffer on the assigned channel
+                wifi_sniffer_filter_beacons_only();  // Only capture beacon frames
+                wifi_sniffer_start(wifi_channel);    // Start the sniffer on this channel
+                
                 ESP_LOGI(I2C_MESSAGES_TAG, "WiFi channel %d assigned to sub node (ID: 0x%02X)", 
                          wifi_channel, device_identifier);
+                
+                // Send acknowledgment that the sniffer is started
+                uint8_t ack_data[1] = {wifi_channel};
+                i2c_send_message_data(msg_res_data, dev_idx, ack_data, 1);
             } else {
                 ESP_LOGW(I2C_MESSAGES_TAG, "Received WiFi channel message with insufficient data");
             }
