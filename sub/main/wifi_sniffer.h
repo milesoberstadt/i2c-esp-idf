@@ -45,4 +45,8 @@ void wifi_sniffer_start(uint8_t channel);
  */
 void wifi_sniffer_stop(void);
 
+void sniffer_event_handler(void *arg, esp_event_base_t event_base,
+                                  int32_t event_id, void *event_data);
+void wifi_sniffer_event_handler_task(void *pvParameters);
+
 #endif // __WIFI_SNIFFER_H__

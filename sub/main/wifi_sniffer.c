@@ -148,3 +148,82 @@ void wifi_sniffer_stop(void) {
     ESP_LOGI(TAG, "Stopping promiscuous mode");
     esp_wifi_set_promiscuous(false);
 }
+
+/**
+ * @brief Task to handle WiFi sniffer events
+ *
+ * This task registers for all sniffer events and processes them
+ */
+void wifi_sniffer_event_handler_task(void *pvParameters) {
+    ESP_LOGI(TAG, "Starting WiFi sniffer event handler task");
+    // Initialize WiFi in station mode for sniffing
+    wifi_sniffer_init();
+
+    // Create event loop for handling WiFi events
+    esp_event_loop_handle_t event_loop_handle;
+    esp_event_loop_args_t event_loop_args = {
+        .queue_size = 10,
+        .task_name = "sniffer_event_loop",
+        .task_priority = 5,
+        .task_stack_size = 4096,
+        .task_core_id = tskNO_AFFINITY};
+
+    ESP_ERROR_CHECK(esp_event_loop_create(&event_loop_args, &event_loop_handle));
+
+    // Register for all sniffer events
+    ESP_ERROR_CHECK(esp_event_handler_register_with(
+        event_loop_handle,
+        SNIFFER_EVENTS,
+        ESP_EVENT_ANY_ID,
+        sniffer_event_handler,
+        NULL));
+
+    ESP_LOGI(TAG, "Registered for sniffer events");
+
+    // Keep task alive
+    while (1)
+    {
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+}
+
+/**
+ * @brief Event handler for WiFi sniffer events
+ */
+void sniffer_event_handler(void *arg, esp_event_base_t event_base,
+                                  int32_t event_id, void *event_data) {
+    if (event_base != SNIFFER_EVENTS)
+    {
+        return;
+    }
+
+    wifi_promiscuous_pkt_t *frame = (wifi_promiscuous_pkt_t *)event_data;
+
+    switch (event_id)
+    {
+    case SNIFFER_EVENT_BEACON:
+        ESP_LOGI(TAG, "Beacon frame detected: RSSI=%d, Channel=%d",
+                 (int) frame->rx_ctrl.rssi,
+                 (int) frame->rx_ctrl.channel);
+
+        // For now, we're just logging beacon detections
+        // In the future, this is where we could send beacon data to the DOM node via I2C
+        break;
+
+    case SNIFFER_EVENT_CAPTURED_MGMT:
+        ESP_LOGD(TAG, "Management frame detected");
+        break;
+
+    case SNIFFER_EVENT_CAPTURED_DATA:
+        ESP_LOGD(TAG, "Data frame detected");
+        break;
+
+    case SNIFFER_EVENT_CAPTURED_CTRL:
+        ESP_LOGD(TAG, "Control frame detected");
+        break;
+
+    default:
+        ESP_LOGW(TAG, "Unknown sniffer event: %" PRId32, event_id);
+        break;
+    }
+}
