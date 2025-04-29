@@ -8,15 +8,15 @@
 #include "nvs_flash.h"
 
 #include "constants.h"
-#include "i2c_slave.h"
-#include "i2c_messages.h"
+#include "spi_slave.h"
+#include "spi_messages.h"
 #include "types.h"
 #include "wifi_sniffer.h"
 
 #define MAIN_TAG "SUB_MAIN"
 
 void app_main(void) {
-    ESP_LOGI(MAIN_TAG, "SUB (I2C Slave) node starting...");
+    ESP_LOGI(MAIN_TAG, "SUB (SPI Slave) node starting...");
     
     // Initialize NVS
     esp_err_t ret = nvs_flash_init();
@@ -26,19 +26,36 @@ void app_main(void) {
     }
     ESP_ERROR_CHECK(ret);
     
-    ESP_LOGI(MAIN_TAG, "Initializing I2C Slave...");
+    // Initialize WiFi in station mode for sniffing
+    ESP_LOGI(MAIN_TAG, "Initializing WiFi sniffer...");
+    if (!wifi_sniffer_init()) {
+        ESP_LOGE(MAIN_TAG, "Failed to initialize WiFi sniffer");
+        // Continue anyway, SPI communication can still work
+    } else {
+        ESP_LOGI(MAIN_TAG, "WiFi sniffer initialized successfully");
+        // Set default channel
+        wifi_sniffer_set_channel(DEFAULT_WIFI_CHANNEL);
+    }
+
+    // Create a task to handle sniffer events
+    xTaskCreate(wifi_sniffer_event_handler_task, "sniffer_events", 4096, NULL, 5, NULL);
     
-    // Don't create a separate task for I2C initialization, just call it directly
-    i2c_slave_init();
+    ESP_LOGI(MAIN_TAG, "Initializing SPI Slave...");
     
-    ESP_LOGI(MAIN_TAG, "Starting I2C receive tasks...");
-    i2c_start_receive();
+    // Initialize SPI slave
+    if (!spi_slave_init()) {
+        ESP_LOGE(MAIN_TAG, "Failed to initialize SPI slave");
+        return;
+    }
+    
+    ESP_LOGI(MAIN_TAG, "Starting SPI receive tasks...");
+    if (!spi_slave_start_tasks()) {
+        ESP_LOGE(MAIN_TAG, "Failed to start SPI receive task");
+        return;
+    }
     
     ESP_LOGI(MAIN_TAG, "SUB node initialized successfully");
     ESP_LOGI(MAIN_TAG, "Waiting for messages from DOM node...");
-    
-    // Create a task to handle sniffer events
-    xTaskCreate(wifi_sniffer_event_handler_task, "sniffer_events", 4096, NULL, 5, NULL);
     
     // Main program loop
     while (1) {

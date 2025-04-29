@@ -8,10 +8,17 @@
 #include "esp_wifi_types.h"
 #include "esp_netif.h"
 #include "nvs_flash.h"
+#include <string.h>
 
 static const char *TAG = "wifi_sniffer";
 
 ESP_EVENT_DEFINE_BASE(SNIFFER_EVENTS);
+
+// Statistics structure for tracking sniffed packets
+static wifi_stats_t stats = {0};
+
+// Current WiFi channel
+static uint8_t current_channel = 1;
 
 /**
  * @brief Checks if a frame is a beacon frame
@@ -45,16 +52,22 @@ static void frame_handler(void *buf, wifi_promiscuous_pkt_type_t type) {
     wifi_promiscuous_pkt_t *frame = (wifi_promiscuous_pkt_t *) buf;
     const uint8_t *payload = frame->payload;
     
+    // Update statistics
+    stats.packet_count++;
+    
     int32_t event_id;
     switch (type) {
         case WIFI_PKT_DATA:
             event_id = SNIFFER_EVENT_CAPTURED_DATA;
+            stats.data_count++;
             break;
         case WIFI_PKT_MGMT:
             event_id = SNIFFER_EVENT_CAPTURED_MGMT;
+            stats.mgmt_count++;
             
             // Check if this is a beacon frame and post a special event
             if (is_beacon_frame(payload)) {
+                stats.beacon_count++;
                 ESP_LOGI(TAG, "Beacon frame detected");
                 // Extract and print the SSID from the beacon frame
                 const uint8_t ssid_length = payload[37];       // SSID length is at offset 37
@@ -69,6 +82,7 @@ static void frame_handler(void *buf, wifi_promiscuous_pkt_type_t type) {
             break;
         case WIFI_PKT_CTRL:
             event_id = SNIFFER_EVENT_CAPTURED_CTRL;
+            stats.ctrl_count++;
             break;
         default:
             return;
@@ -79,26 +93,56 @@ static void frame_handler(void *buf, wifi_promiscuous_pkt_type_t type) {
                                  portMAX_DELAY));
 }
 
-void wifi_sniffer_init(void) {
+bool wifi_sniffer_init(void) {
     ESP_LOGI(TAG, "Initializing WiFi in station mode");
     
     // Initialize TCP/IP adapter
-    ESP_ERROR_CHECK(esp_netif_init());
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
+    esp_err_t ret = esp_netif_init();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize netif: %s", esp_err_to_name(ret));
+        return false;
+    }
+    
+    ret = esp_event_loop_create_default();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to create event loop: %s", esp_err_to_name(ret));
+        return false;
+    }
     
     // Create default WiFi STA netif
     esp_netif_t *sta_netif = esp_netif_create_default_wifi_sta();
-    assert(sta_netif);
+    if (sta_netif == NULL) {
+        ESP_LOGE(TAG, "Failed to create default WiFi STA netif");
+        return false;
+    }
     
     // Initialize WiFi
     wifi_init_config_t wifi_init_config = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK(esp_wifi_init(&wifi_init_config));
+    ret = esp_wifi_init(&wifi_init_config);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize WiFi: %s", esp_err_to_name(ret));
+        return false;
+    }
     
     // Configure WiFi mode
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-    ESP_ERROR_CHECK(esp_wifi_start());
+    ret = esp_wifi_set_mode(WIFI_MODE_STA);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to set WiFi mode: %s", esp_err_to_name(ret));
+        return false;
+    }
+    
+    ret = esp_wifi_start();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to start WiFi: %s", esp_err_to_name(ret));
+        return false;
+    }
     
     ESP_LOGI(TAG, "WiFi initialized in station mode");
+    
+    // Reset statistics
+    wifi_sniffer_reset_stats();
+    
+    return true;
 }
 
 void wifi_sniffer_filter_beacons_only(void) {
@@ -117,36 +161,103 @@ void wifi_sniffer_filter_frame_types(bool data, bool mgmt, bool ctrl) {
     
     wifi_promiscuous_filter_t filter = { .filter_mask = 0 };
     
-    // Match the original code's behavior which uses else-if
-    if(data) {
+    if (data) {
         filter.filter_mask |= WIFI_PROMIS_FILTER_MASK_DATA;
     }
-    else if(mgmt) {
+    if (mgmt) {
         filter.filter_mask |= WIFI_PROMIS_FILTER_MASK_MGMT;
     }
-    else if(ctrl) {
+    if (ctrl) {
         filter.filter_mask |= WIFI_PROMIS_FILTER_MASK_CTRL;
     }
     
     ESP_ERROR_CHECK(esp_wifi_set_promiscuous_filter(&filter));
 }
 
-void wifi_sniffer_start(uint8_t channel) {
+bool wifi_sniffer_start(uint8_t channel) {
     ESP_LOGI(TAG, "Starting promiscuous mode on channel %d", (int) channel);
     
     // Set channel
-    ESP_ERROR_CHECK(esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE));
+    esp_err_t ret = esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to set WiFi channel: %s", esp_err_to_name(ret));
+        return false;
+    }
+    
+    current_channel = channel;
     
     // Register callback and enable promiscuous mode
     esp_wifi_set_promiscuous_rx_cb(&frame_handler);
-    esp_wifi_set_promiscuous(true);
+    ret = esp_wifi_set_promiscuous(true);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to start promiscuous mode: %s", esp_err_to_name(ret));
+        return false;
+    }
     
     ESP_LOGI(TAG, "Promiscuous mode started");
+    return true;
 }
 
-void wifi_sniffer_stop(void) {
+bool wifi_sniffer_stop(void) {
     ESP_LOGI(TAG, "Stopping promiscuous mode");
-    esp_wifi_set_promiscuous(false);
+    esp_err_t ret = esp_wifi_set_promiscuous(false);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to stop promiscuous mode: %s", esp_err_to_name(ret));
+        return false;
+    }
+    return true;
+}
+
+bool wifi_sniffer_set_channel(uint8_t channel) {
+    if (channel < 1 || channel > 14) {
+        ESP_LOGE(TAG, "Invalid WiFi channel: %d (must be 1-14)", channel);
+        return false;
+    }
+    
+    ESP_LOGI(TAG, "Setting WiFi channel to %d", channel);
+    
+    // If sniffer is active, restart it with the new channel
+    bool was_active = false;
+    esp_err_t ret = esp_wifi_get_promiscuous(&was_active);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to get promiscuous mode status: %s", esp_err_to_name(ret));
+        return false;
+    }
+    
+    // Stop sniffer if it's active
+    if (was_active) {
+        if (!wifi_sniffer_stop()) {
+            return false;
+        }
+    }
+    
+    // Set channel
+    ret = esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to set WiFi channel: %s", esp_err_to_name(ret));
+        return false;
+    }
+    
+    current_channel = channel;
+    
+    // Restart sniffer if it was active
+    if (was_active) {
+        if (!wifi_sniffer_start(channel)) {
+            return false;
+        }
+    }
+    
+    ESP_LOGI(TAG, "WiFi channel set to %d", channel);
+    return true;
+}
+
+wifi_stats_t wifi_sniffer_get_stats(void) {
+    return stats;
+}
+
+void wifi_sniffer_reset_stats(void) {
+    ESP_LOGI(TAG, "Resetting WiFi sniffer statistics");
+    memset(&stats, 0, sizeof(stats));
 }
 
 /**
@@ -156,8 +267,6 @@ void wifi_sniffer_stop(void) {
  */
 void wifi_sniffer_event_handler_task(void *pvParameters) {
     ESP_LOGI(TAG, "Starting WiFi sniffer event handler task");
-    // Initialize WiFi in station mode for sniffing
-    wifi_sniffer_init();
 
     // Create event loop for handling WiFi events
     esp_event_loop_handle_t event_loop_handle;
@@ -207,7 +316,7 @@ void sniffer_event_handler(void *arg, esp_event_base_t event_base,
                  (int) frame->rx_ctrl.channel);
 
         // For now, we're just logging beacon detections
-        // In the future, this is where we could send beacon data to the DOM node via I2C
+        // In the future, this is where we could send beacon data to the DOM node via SPI
         break;
 
     case SNIFFER_EVENT_CAPTURED_MGMT:
