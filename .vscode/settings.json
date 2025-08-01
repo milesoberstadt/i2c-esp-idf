@@ -3,5 +3,6 @@
     "events.h": "c",
     "types.h": "c",
     "uuid128.h": "c"
-  }
+  },
+  "idf.pythonInstallPath": "/usr/bin/python3"
 }

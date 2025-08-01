@@ -1,22 +1,29 @@
 #include <stdio.h>
-#include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_system.h"
 #include "esp_log.h"
-#include "esp_event.h"
+#include "esp_timer.h"
 #include "nvs_flash.h"
-
-#include "constants.h"
-#include "i2c_slave.h"
-#include "i2c_messages.h"
-#include "types.h"
-#include "wifi_sniffer.h"
 
 #define MAIN_TAG "SUB_MAIN"
 
+void uptime_task(void *pvParameters) {
+    while (1) {
+        uint32_t uptime_ms = esp_timer_get_time() / 1000;
+        uint32_t uptime_seconds = uptime_ms / 1000;
+        uint32_t hours = uptime_seconds / 3600;
+        uint32_t minutes = (uptime_seconds % 3600) / 60;
+        uint32_t seconds = uptime_seconds % 60;
+        
+        ESP_LOGI(MAIN_TAG, "Uptime: %02lu:%02lu:%02lu (%lu seconds)", hours, minutes, seconds, uptime_seconds);
+        
+        vTaskDelay(pdMS_TO_TICKS(5000)); // Log uptime every 5 seconds
+    }
+}
+
 void app_main(void) {
-    ESP_LOGI(MAIN_TAG, "SUB (I2C Slave) node starting...");
+    ESP_LOGI(MAIN_TAG, "SUB node starting...");
     
     // Initialize NVS
     esp_err_t ret = nvs_flash_init();
@@ -26,22 +33,10 @@ void app_main(void) {
     }
     ESP_ERROR_CHECK(ret);
     
-    ESP_LOGI(MAIN_TAG, "Initializing I2C Slave...");
+    ESP_LOGI(MAIN_TAG, "Starting uptime logging...");
     
-    // Don't create a separate task for I2C initialization, just call it directly
-    i2c_slave_init();
-    
-    ESP_LOGI(MAIN_TAG, "Starting I2C receive tasks...");
-    i2c_start_receive();
+    // Create task to log uptime every 5 seconds
+    xTaskCreate(uptime_task, "uptime_task", 2048, NULL, 5, NULL);
     
     ESP_LOGI(MAIN_TAG, "SUB node initialized successfully");
-    ESP_LOGI(MAIN_TAG, "Waiting for messages from DOM node...");
-    
-    // Create a task to handle sniffer events
-    xTaskCreate(wifi_sniffer_event_handler_task, "sniffer_events", 4096, NULL, 5, NULL);
-    
-    // Main program loop
-    while (1) {
-        vTaskDelay(pdMS_TO_TICKS(10000)); // Just keep the program running
-    }
 }
