@@ -2,6 +2,11 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+# Rules to abide
+- I will ask you to do one task out of a list of tasks. Please complete my instructions and stop instead of continuing to work ahead on the list of tasks. I need to manually review your work and continuing beyond the scope I ask of you makes this impossible.
+
+# Background
+
 This project aims to implement a multi node WiFi Access Point scanner using ESP32s and SPI for inter device communication. The idea is that SUB nodes are assigned a WiFi channel, they put the wireless chip in promiscious mode on that channel so they can send probe requests and listen to responses without changing channels. The DOM (master) node hops from device to device to collect these records and store them on a microSD card.
 
 # Additional Resource Files

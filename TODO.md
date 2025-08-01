@@ -4,7 +4,7 @@ Each section below relates to a phase of the project where we need to stop for m
 
 ## Implement basic SPI communication
 
-Status: Not started
+Status: Complete!
 
 ### Description
 
@@ -15,6 +15,8 @@ The DOM node should:
 * wait 5 seconds for the sub node to boot
 * connect to the sub
 * request the number of wifi nodes from the sub, print the response, repeat every 10 seconds
+* retry the connection up to 3 times for initialization and when sub nodes don't respond
+* use standard known good SPI configuration, please let me know if it requires me to change my physical wiring
 
 The SUB node should:
 
@@ -59,6 +61,7 @@ The SUB node should:
 
 * Take the channel assignment stored in the previous TODO item, change to that WIFI channel, and set up a promiscious interface to listen for beacon frames. There should be a link in RESEARCH.md for this
 * Adapt this new function to utilize the previous storage and reporting back to the DOM node.
+* Only store nodes in this list once per MAC address, up to 500 total records in the storage buffer, then start removing old records
 * Write code to work with the previous version of DOM code if possible, but let me know if changes are needed to the DOM node.
 
 
