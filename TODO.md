@@ -38,10 +38,10 @@ We need to be able to handle 11 nodes (one for each WiFi channel) at the end of 
 The DOM node should:
 
 * Create an array of pins matching the CS pins listed in the README.md
+* Create a shared spi_device_handle to connect to the sub node. We need to only use one SPI handle/connection at a time to reduce memory consumption.
 * After waiting 5 seconds for sub nodes to boot, loop through these CS pins one by one. For each pin / sub node:
-  * Re-initialize a shared spi_device_handle to connect to the sub node. We need to only use one SPI handle/connection at a time to reduce memory consumption.
+  * Change cable select to the correct GPIO states for the selected sub node
   * Asking the SUB node how many WiFi APs it can see
-  * Destroy the spi_device_handle and free the associated memory
 * Log the result and which device it came from
 
 The SUB node should:
