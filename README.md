@@ -10,9 +10,19 @@ DOM (Master) | SUB (Slave) | Function
 GPIO 23      | GPIO 9      | MOSI
 GPIO 19      | GPIO 8      | MISO
 GPIO 18      | GPIO 7      | SCLK
-GPIO 5       | GPIO 44     | CS (Chip Select)
+GPIO 5       | GPIO 44     | CS (Chip Select) - SUB node 1
+GPIO 4       | GPIO 44     | CS (Chip Select) - SUB node 2
+GPIO 21      | GPIO 44     | CS (Chip Select) - SUB node 3
+GPIO 22      | GPIO 44     | CS (Chip Select) - SUB node 4
+GPIO 32      | GPIO 44     | CS (Chip Select) - SUB node 5
+GPIO 33      | GPIO 44     | CS (Chip Select) - SUB node 6
+GPIO 25      | GPIO 44     | CS (Chip Select) - SUB node 7
+GPIO 26      | GPIO 44     | CS (Chip Select) - SUB node 8
+GPIO 27      | GPIO 44     | CS (Chip Select) - SUB node 9
+GPIO 2       | GPIO 44     | CS (Chip Select) - SUB node 10
+GPIO 16      | GPIO 44     | CS (Chip Select) - SUB node 11
 
-Currently the CS line is tied directly from the DOM node to the SUB node
+The SPI bus (MOSI, MISO, SCLK) is shared between SUB nodes, with individual CS lines for device selection.
 
 (esp32 wroom spec sheet)[https://www.espboards.dev/esp32/nodemcu-32s/]
 

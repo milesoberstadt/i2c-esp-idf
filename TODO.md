@@ -27,13 +27,34 @@ The SUB node should:
 
 Be sure to log SPI traffic on both the DOM and SUB nodes
 
-## Handle sub node scaling (CS, auto identifying, assign wifi channel)
+## Handle sub node scaling
 
 Status: Not started
 
 ### Description
 
 We need to be able to handle 11 nodes (one for each WiFi channel) at the end of this project, but I currently have two sub nodes connected currently. 
+
+The DOM node should:
+
+* Create an array of pins matching the CS pins listed in the README.md
+* After waiting 5 seconds for sub nodes to boot, loop through these CS pins one by one. For each pin / sub node:
+  * Re-initialize a shared spi_device_handle to connect to the sub node. We need to only use one SPI handle/connection at a time to reduce memory consumption.
+  * Asking the SUB node how many WiFi APs it can see
+  * Destroy the spi_device_handle and free the associated memory
+* Log the result and which device it came from
+
+The SUB node should:
+
+* Not need any changes to accomodate the DOM node changes
+
+## Implement targeted WiFi scanning
+
+Status: Not started
+
+### Description
+
+Once we have our nodes connected, we need to modify the SPI communication to accomodate more data to be transmitted. In this step we will assign wifi channels from the DOM node to SUB nodes.
 
 The DOM node should:
 
