@@ -158,6 +158,14 @@ esp_err_t spi_send_command_to_node(int cs_pin, uint8_t cmd, uint32_t *response) 
   // Extract response (4-byte response starting at index 1)
   *response = (rx_data[1] << 24) | (rx_data[2] << 16) | (rx_data[3] << 8) | rx_data[4];
   
+  // Real SUB nodes ALWAYS send zeros in bytes 5-7 (unused buffer space)
+  // If these bytes contain garbage data, it's likely an unconnected device with floating pins
+  if (rx_data[5] != 0 || rx_data[6] != 0 || rx_data[7] != 0) {
+    ESP_LOGW(SPI_TAG, "Invalid response format from CS pin %d (bytes 5-7: %02X %02X %02X) - likely no device connected", 
+             cs_pin, rx_data[5], rx_data[6], rx_data[7]);
+    return ESP_FAIL;
+  }
+  
   ESP_LOGI(SPI_TAG, "Valid response from CS pin %d: %lu", cs_pin, *response);
   return ESP_OK;
 }
