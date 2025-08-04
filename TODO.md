@@ -29,7 +29,7 @@ Be sure to log SPI traffic on both the DOM and SUB nodes
 
 ## Handle sub node scaling
 
-Status: Not started
+Status: Complete!
 
 ### Description
 
