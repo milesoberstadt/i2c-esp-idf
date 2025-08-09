@@ -20,7 +20,7 @@
 #define PIN_NUM_MISO 8
 #define PIN_NUM_MOSI 9
 #define PIN_NUM_CLK  7
-#define PIN_NUM_CS   44
+#define PIN_NUM_CS   1
 
 // SPI configuration
 #define SPI_HOST_ID  SPI2_HOST

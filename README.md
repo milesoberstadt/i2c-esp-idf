@@ -10,17 +10,17 @@ DOM (Master) | SUB (Slave) | Function
 GPIO 23      | GPIO 9      | MOSI
 GPIO 19      | GPIO 8      | MISO
 GPIO 18      | GPIO 7      | SCLK
-GPIO 5       | GPIO 44     | CS (Chip Select) - SUB node 1
-GPIO 4       | GPIO 44     | CS (Chip Select) - SUB node 2
-GPIO 21      | GPIO 44     | CS (Chip Select) - SUB node 3
-GPIO 22      | GPIO 44     | CS (Chip Select) - SUB node 4
-GPIO 32      | GPIO 44     | CS (Chip Select) - SUB node 5
-GPIO 33      | GPIO 44     | CS (Chip Select) - SUB node 6
-GPIO 25      | GPIO 44     | CS (Chip Select) - SUB node 7
-GPIO 26      | GPIO 44     | CS (Chip Select) - SUB node 8
-GPIO 27      | GPIO 44     | CS (Chip Select) - SUB node 9
-GPIO 2       | GPIO 44     | CS (Chip Select) - SUB node 10
-GPIO 16      | GPIO 44     | CS (Chip Select) - SUB node 11
+GPIO 5       | GPIO 1      | CS (Chip Select) - SUB node 1
+GPIO 4       | GPIO 1      | CS (Chip Select) - SUB node 2
+GPIO 21      | GPIO 1      | CS (Chip Select) - SUB node 3
+GPIO 22      | GPIO 1      | CS (Chip Select) - SUB node 4
+GPIO 32      | GPIO 1      | CS (Chip Select) - SUB node 5
+GPIO 33      | GPIO 1      | CS (Chip Select) - SUB node 6
+GPIO 25      | GPIO 1      | CS (Chip Select) - SUB node 7
+GPIO 26      | GPIO 1      | CS (Chip Select) - SUB node 8
+GPIO 27      | GPIO 1      | CS (Chip Select) - SUB node 9
+GPIO 2       | GPIO 1      | CS (Chip Select) - SUB node 10
+GPIO 16      | GPIO 1      | CS (Chip Select) - SUB node 11
 
 The SPI bus (MOSI, MISO, SCLK) is shared between SUB nodes, with individual CS lines for device selection.
 

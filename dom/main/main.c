@@ -18,7 +18,8 @@
 #define PIN_NUM_CLK  18
 
 // CS pins for SUB nodes (up to 11 nodes from README.md)
-static const int cs_pins[] = {5, 4, 21, 22, 32, 33, 25, 26, 27, 2, 16};
+static const int cs_pins[] = {5, 4};
+// static const int cs_pins[] = {5, 4, 21, 22, 32, 33, 25, 26, 27, 2, 16};
 #define NUM_SUB_NODES (sizeof(cs_pins) / sizeof(cs_pins[0]))
 
 // SPI configuration
@@ -111,7 +112,7 @@ esp_err_t spi_send_command_to_node(int cs_pin, uint8_t cmd, uint32_t *response) 
 
   // Manual CS control - select the device
   gpio_set_level(cs_pin, 0);  // Active low CS
-  vTaskDelay(pdMS_TO_TICKS(1)); // Small delay for CS setup
+  vTaskDelay(pdMS_TO_TICKS(10)); // Small delay for CS setup
 
   esp_err_t ret = spi_device_transmit(spi_handle, &trans);
   
@@ -174,6 +175,14 @@ void spi_communication_task(void *pvParameters) {
   ESP_LOGI(SPI_TAG, "Waiting 5 seconds for SUB nodes to boot...");
   vTaskDelay(pdMS_TO_TICKS(5000));
 
+  // Initialize SPI after SUB nodes have had time to boot
+  ESP_LOGI(SPI_TAG, "Initializing SPI after SUB boot delay...");
+  esp_err_t ret = spi_init();
+  if (ret != ESP_OK) {
+    ESP_LOGE(SPI_TAG, "Failed to initialize SPI, restarting...");
+    esp_restart();
+  }
+
   while (1) {
     ESP_LOGI(MAIN_TAG, "Polling %d SUB nodes...", NUM_SUB_NODES);
     
@@ -223,14 +232,6 @@ void app_main(void) {
         ret = nvs_flash_init();
     }
     ESP_ERROR_CHECK(ret);
-    
-    // Initialize SPI with manual CS control
-    ESP_LOGI(MAIN_TAG, "Initializing SPI...");
-    ret = spi_init();
-    if (ret != ESP_OK) {
-        ESP_LOGE(MAIN_TAG, "Failed to initialize SPI, restarting...");
-        esp_restart();
-    }
     
     ESP_LOGI(MAIN_TAG, "Starting uptime logging...");
     
