@@ -4,6 +4,7 @@
 #include "freertos/task.h"
 #include "esp_system.h"
 #include "esp_log.h"
+#include "esp_rom_sys.h"
 #include "esp_timer.h"
 #include "nvs_flash.h"
 #include "driver/spi_master.h"
@@ -110,14 +111,19 @@ esp_err_t spi_send_command_to_node(int cs_pin, uint8_t cmd, uint32_t *response) 
 
   ESP_LOGI(SPI_TAG, "Sending command 0x%02X to CS pin %d", cmd, cs_pin);
 
-  // Manual CS control - select the device
+  // Manual CS control
+  for (int i = 0; i < NUM_SUB_NODES; i++) {
+    gpio_set_level(cs_pins[i], 1);  // Deselect all devices
+  }
+  esp_rom_delay_us(2);  // settle time
   gpio_set_level(cs_pin, 0);  // Active low CS
-  vTaskDelay(pdMS_TO_TICKS(10)); // Small delay for CS setup
+  esp_rom_delay_us(5);  // Additional delay for device readiness
 
   esp_err_t ret = spi_device_transmit(spi_handle, &trans);
   
   // Deselect the device
   gpio_set_level(cs_pin, 1);  // Inactive high CS
+  esp_rom_delay_us(2);  // settle time
 
   if (ret != ESP_OK) {
     ESP_LOGE(SPI_TAG, "SPI transmit failed: %s", esp_err_to_name(ret));
@@ -200,26 +206,12 @@ void spi_communication_task(void *pvParameters) {
       }
       
       // Small delay between nodes to avoid bus conflicts
-      vTaskDelay(pdMS_TO_TICKS(50));
+      vTaskDelay(pdMS_TO_TICKS(1));
     }
     
     ESP_LOGI(MAIN_TAG, "Completed polling all SUB nodes");
-    vTaskDelay(pdMS_TO_TICKS(10000)); // Wait 10 seconds before next polling cycle
+    vTaskDelay(pdMS_TO_TICKS(5000)); // Wait 5 seconds before next polling cycle
   }
-}
-
-void uptime_task(void *pvParameters) {
-    while (1) {
-        uint32_t uptime_ms = esp_timer_get_time() / 1000;
-        uint32_t uptime_seconds = uptime_ms / 1000;
-        uint32_t hours = uptime_seconds / 3600;
-        uint32_t minutes = (uptime_seconds % 3600) / 60;
-        uint32_t seconds = uptime_seconds % 60;
-        
-        ESP_LOGI(MAIN_TAG, "Uptime: %02lu:%02lu:%02lu (%lu seconds)", hours, minutes, seconds, uptime_seconds);
-        
-        vTaskDelay(pdMS_TO_TICKS(5000)); // Log uptime every 5 seconds
-    }
 }
 
 void app_main(void) {
@@ -234,9 +226,6 @@ void app_main(void) {
     ESP_ERROR_CHECK(ret);
     
     ESP_LOGI(MAIN_TAG, "Starting uptime logging...");
-    
-    // Create task to log uptime every 5 seconds
-    xTaskCreate(uptime_task, "uptime_task", 2048, NULL, 5, NULL);
     
     // Create task for SPI communication
     xTaskCreate(spi_communication_task, "spi_comm_task", 4096, NULL, 6, NULL);
