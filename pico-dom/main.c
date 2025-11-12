@@ -4,8 +4,6 @@
 #include "pico/time.h"
 #include "hardware/spi.h"
 #include "hardware/gpio.h"
-#include "hardware/timer.h"
-#include "pico/multicore.h"
 
 #define MAIN_TAG "DOM_MAIN"
 #define SPI_TAG "DOM_SPI"
@@ -131,70 +129,82 @@ bool spi_send_command_to_node(uint cs_pin, uint8_t cmd, uint32_t *response) {
   return true;
 }
 
-void spi_communication_task(void) {
-  LOG_INFO(SPI_TAG, "Waiting 5 seconds for SUB nodes to boot...");
-  sleep_ms(5000);
+void poll_sub_nodes(void) {
+  LOG_INFO(MAIN_TAG, "Polling %d SUB nodes...", NUM_SUB_NODES);
 
-  // Initialize SPI after SUB nodes have had time to boot
-  LOG_INFO(SPI_TAG, "Initializing SPI after SUB boot delay...");
-  if (!spi_init_dom()) {
-    LOG_ERROR(SPI_TAG, "Failed to initialize SPI, resetting...");
-    // Note: Pico doesn't have esp_restart(), so we'll return and let watchdog handle it
-    return;
-  }
+  for (int i = 0; i < NUM_SUB_NODES; i++) {
+    uint cs_pin = cs_pins[i];
+    LOG_INFO(MAIN_TAG, "Querying SUB node %d (CS pin %d)", i + 1, cs_pin);
 
-  while (1) {
-    LOG_INFO(MAIN_TAG, "Polling %d SUB nodes...", NUM_SUB_NODES);
+    uint32_t wifi_count = 0;
+    bool success = spi_send_command_to_node(cs_pin, CMD_GET_WIFI_COUNT, &wifi_count);
 
-    for (int i = 0; i < NUM_SUB_NODES; i++) {
-      uint cs_pin = cs_pins[i];
-      LOG_INFO(MAIN_TAG, "Querying SUB node %d (CS pin %d)", i + 1, cs_pin);
-
-      uint32_t wifi_count = 0;
-      bool success = spi_send_command_to_node(cs_pin, CMD_GET_WIFI_COUNT, &wifi_count);
-
-      if (success) {
-        LOG_INFO(MAIN_TAG, "SUB node %d (CS pin %d): WiFi AP count = %lu", i + 1, cs_pin, wifi_count);
-      } else {
-        LOG_INFO(MAIN_TAG, "SUB node %d (CS pin %d): No response (device not connected)", i + 1, cs_pin);
-      }
-
-      // Small delay between nodes to avoid bus conflicts
-      sleep_ms(50);
+    if (success) {
+      LOG_INFO(MAIN_TAG, "SUB node %d (CS pin %d): WiFi AP count = %lu", i + 1, cs_pin, wifi_count);
+    } else {
+      LOG_INFO(MAIN_TAG, "SUB node %d (CS pin %d): No response (device not connected)", i + 1, cs_pin);
     }
 
-    LOG_INFO(MAIN_TAG, "Completed polling all SUB nodes");
-    sleep_ms(10000); // Wait 10 seconds before next polling cycle
+    // Small delay between nodes to avoid bus conflicts
+    sleep_ms(50);
   }
+
+  LOG_INFO(MAIN_TAG, "Completed polling all SUB nodes");
 }
 
-void uptime_task(void) {
-  while (1) {
-    uint32_t uptime_ms = to_ms_since_boot(get_absolute_time());
-    uint32_t uptime_seconds = uptime_ms / 1000;
-    uint32_t hours = uptime_seconds / 3600;
-    uint32_t minutes = (uptime_seconds % 3600) / 60;
-    uint32_t seconds = uptime_seconds % 60;
+void log_uptime(void) {
+  uint32_t uptime_ms = to_ms_since_boot(get_absolute_time());
+  uint32_t uptime_seconds = uptime_ms / 1000;
+  uint32_t hours = uptime_seconds / 3600;
+  uint32_t minutes = (uptime_seconds % 3600) / 60;
+  uint32_t seconds = uptime_seconds % 60;
 
-    LOG_INFO(MAIN_TAG, "Uptime: %02lu:%02lu:%02lu (%lu seconds)", hours, minutes, seconds, uptime_seconds);
-
-    sleep_ms(5000); // Log uptime every 5 seconds
-  }
+  LOG_INFO(MAIN_TAG, "Uptime: %02lu:%02lu:%02lu (%lu seconds)", hours, minutes, seconds, uptime_seconds);
 }
 
 int main() {
   stdio_init_all();
 
   LOG_INFO(MAIN_TAG, "DOM node starting...");
-  LOG_INFO(MAIN_TAG, "Starting uptime logging...");
 
-  // Start uptime task on core 1
-  multicore_launch_core1(uptime_task);
+  // Wait for SUB nodes to boot
+  LOG_INFO(MAIN_TAG, "Waiting 5 seconds for SUB nodes to boot...");
+  sleep_ms(5000);
 
-  // Run SPI communication on core 0
-  spi_communication_task();
+  // Initialize SPI
+  LOG_INFO(SPI_TAG, "Initializing SPI...");
+  if (!spi_init_dom()) {
+    LOG_ERROR(SPI_TAG, "Failed to initialize SPI");
+    return 1;
+  }
 
   LOG_INFO(MAIN_TAG, "DOM node initialized successfully");
+
+  // Timing variables
+  uint32_t last_poll_time = 0;
+  uint32_t last_uptime_log_time = 0;
+  const uint32_t POLL_INTERVAL_MS = 10000;  // Poll every 10 seconds
+  const uint32_t UPTIME_LOG_INTERVAL_MS = 5000;  // Log uptime every 5 seconds
+
+  // Main loop
+  while (1) {
+    uint32_t current_time = to_ms_since_boot(get_absolute_time());
+
+    // Poll SUB nodes periodically
+    if (current_time - last_poll_time >= POLL_INTERVAL_MS) {
+      poll_sub_nodes();
+      last_poll_time = current_time;
+    }
+
+    // Log uptime periodically
+    if (current_time - last_uptime_log_time >= UPTIME_LOG_INTERVAL_MS) {
+      log_uptime();
+      last_uptime_log_time = current_time;
+    }
+
+    // Small sleep to avoid busy-waiting
+    sleep_ms(100);
+  }
 
   return 0;
 }

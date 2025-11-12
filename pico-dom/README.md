@@ -26,16 +26,16 @@ This is a port of the ESP32 DOM (master) node to the Raspberry Pi Pico platform.
 ## Key Differences from ESP32 Version
 
 ### Architecture Changes
-- **Dual Core**: Uses Pico's dual-core architecture with Core 0 for SPI communication and Core 1 for uptime logging
-- **No FreeRTOS**: Uses Pico SDK's simpler threading model instead of FreeRTOS tasks
+- **Single Threaded**: Uses a simple main loop with periodic function calls instead of multiple cores/tasks
+- **No FreeRTOS**: Uses Pico SDK's simple timing functions instead of FreeRTOS tasks
 - **Logging**: Simplified logging using printf instead of ESP-IDF logging system
-- **Timer**: Uses Pico SDK's timer functions instead of ESP timer
+- **Timer**: Uses Pico SDK's timer functions for periodic execution
 
 ### API Differences
 - `spi_write_read_blocking()` instead of `spi_device_transmit()`
 - `gpio_put()` instead of `gpio_set_level()`
 - `sleep_ms()` instead of `vTaskDelay()`
-- `multicore_launch_core1()` for dual-core operation
+- `to_ms_since_boot()` for timing intervals
 
 ## Building
 

@@ -20,8 +20,6 @@ target_link_libraries(pico_dom
     pico_stdlib
     hardware_spi
     hardware_gpio
-    hardware_timer
-    pico_multicore
 )
 
 # Enable USB output, disable UART output
