@@ -1,51 +1,64 @@
-# DOM Node (I2C Master)
+# Raspberry Pi Pico DOM Node
 
-This ESP-IDF project implements an I2C master node that communicates with a SUB node via I2C.
+This is a port of the ESP32 DOM (master) node to the Raspberry Pi Pico platform.
 
-## Features
+## Hardware Connections
 
-- I2C master implementation for communicating with SUB node
-- Structured message exchange protocol
-- Periodic sending of dummy data and data requests
+### SPI Connections
+- **MISO**: GP16 (Pin 21)
+- **MOSI**: GP19 (Pin 25)
+- **CLK**: GP18 (Pin 24)
 
-## Building and Flashing
+### Chip Select (CS) Pins
+- **CS0**: GP17 (Pin 22) - SUB Node 1
+- **CS1**: GP20 (Pin 26) - SUB Node 2
 
-To build and flash the project:
+## Pin Mapping Comparison
+
+| Function | ESP32 Pin | Pico GPIO | Pico Pin |
+|----------|-----------|-----------|----------|
+| SPI MISO | 19        | GP16      | 21       |
+| SPI MOSI | 23        | GP19      | 25       |
+| SPI CLK  | 18        | GP18      | 24       |
+| CS0      | 5         | GP17      | 22       |
+| CS1      | 4         | GP20      | 26       |
+
+## Key Differences from ESP32 Version
+
+### Architecture Changes
+- **Single Threaded**: Uses a simple main loop with periodic function calls instead of multiple cores/tasks
+- **No FreeRTOS**: Uses Pico SDK's simple timing functions instead of FreeRTOS tasks
+- **Logging**: Simplified logging using printf instead of ESP-IDF logging system
+- **Timer**: Uses Pico SDK's timer functions for periodic execution
+
+### API Differences
+- `spi_write_read_blocking()` instead of `spi_device_transmit()`
+- `gpio_put()` instead of `gpio_set_level()`
+- `sleep_ms()` instead of `vTaskDelay()`
+- `to_ms_since_boot()` for timing intervals
+
+## Building
+
+1. Set up the Pico SDK environment
+2. Set the `PICO_SDK_PATH` environment variable
+3. Build the project:
 
 ```bash
-# Navigate to the project directory
-cd dom
-
-# Build the project
-idf.py build
-
-# Flash to your ESP32 device (replace PORT with your device's port)
-idf.py -p PORT flash
-
-# Monitor the output
-idf.py -p PORT monitor
+mkdir build
+cd build
+cmake ..
+make
 ```
 
-## I2C Communication
+This will generate `pico_dom.uf2` which can be copied to the Pico when in BOOTSEL mode.
 
-The DOM node acts as an I2C master and communicates with the SUB node (slave) using a simple message protocol:
+## Functionality
 
-- Fixed length 32-byte messages
-- 3-byte header (message type, device index, data length)
-- Variable-length payload
-- Unused bytes padded with 0xFF
+The Pico DOM node maintains the same core functionality as the ESP32 version:
 
-## Message Types
+1. **SPI Master Communication**: Polls SUB nodes via SPI to collect WiFi AP counts
+2. **Multi-Node Support**: Supports multiple SUB nodes with individual CS pin control
+3. **Error Detection**: Detects floating bus conditions and validates responses
+4. **Status Logging**: Regular uptime logging and communication status
 
-- `msg_init_start/end`: Initialization sequence
-- `msg_data`: Send data to the SUB node
-- `msg_req_data`: Request data from the SUB node
-- `msg_res_data`: Response data from the SUB node
-
-## Hardware Setup
-
-Connect the DOM and SUB nodes as follows:
-
-- SCL: GPIO 9 on both devices
-- SDA: GPIO 8 on both devices
-- GND: Common ground between devices
+The polling cycle runs every 10 seconds, querying each connected SUB node for WiFi AP counts.

@@ -2,29 +2,30 @@
 
 This is another wifiydra implemenation using ESP IDF from espressif in the hopes that we can make some improvements.
 
-## Hardware 
-Currently the DOM node (an ESP32 WROOM32) can connect to a SUB node (seeed studio esp32s3) via SPI. The connection uses the following pins:
+## Hardware
+Currently the DOM node (a Raspberry Pi Pico) can connect to SUB nodes (seeed studio esp32s3) via SPI. The connection uses the following pins:
 
 DOM (Master) | SUB (Slave) | Function
 -------------|-------------|--------
-GPIO 23      | GPIO 9      | MOSI
-GPIO 19      | GPIO 8      | MISO
+GPIO 19      | GPIO 9      | MOSI
+GPIO 16      | GPIO 8      | MISO
 GPIO 18      | GPIO 7      | SCLK
-GPIO 5       | GPIO 1      | CS (Chip Select) - SUB node 1
-GPIO 4       | GPIO 1      | CS (Chip Select) - SUB node 2
+GPIO 17      | GPIO 1      | CS (Chip Select) - SUB node 1
+GPIO 20      | GPIO 1      | CS (Chip Select) - SUB node 2
 GPIO 21      | GPIO 1      | CS (Chip Select) - SUB node 3
 GPIO 22      | GPIO 1      | CS (Chip Select) - SUB node 4
-GPIO 32      | GPIO 1      | CS (Chip Select) - SUB node 5
-GPIO 33      | GPIO 1      | CS (Chip Select) - SUB node 6
-GPIO 25      | GPIO 1      | CS (Chip Select) - SUB node 7
-GPIO 26      | GPIO 1      | CS (Chip Select) - SUB node 8
-GPIO 27      | GPIO 1      | CS (Chip Select) - SUB node 9
+GPIO 26      | GPIO 1      | CS (Chip Select) - SUB node 5
+GPIO 27      | GPIO 1      | CS (Chip Select) - SUB node 6
+GPIO 28      | GPIO 1      | CS (Chip Select) - SUB node 7
+GPIO 0       | GPIO 1      | CS (Chip Select) - SUB node 8
+GPIO 1       | GPIO 1      | CS (Chip Select) - SUB node 9
 GPIO 2       | GPIO 1      | CS (Chip Select) - SUB node 10
-GPIO 16      | GPIO 1      | CS (Chip Select) - SUB node 11
+GPIO 3       | GPIO 1      | CS (Chip Select) - SUB node 11
 
+GP17, GP20, GP21, GP22, GP26, GP27, GP28, GP0, GP1, GP2, GP3
 The SPI bus (MOSI, MISO, SCLK) is shared between SUB nodes, with individual CS lines for device selection.
 
-(esp32 wroom spec sheet)[https://www.espboards.dev/esp32/nodemcu-32s/]
+(raspberry pi pico datasheet)[https://datasheets.raspberrypi.com/pico/pico-datasheet.pdf]
 
 (seeed studio esp32s3 spec sheet)[https://www.espboards.dev/esp32/xiao-esp32s3/]
 
