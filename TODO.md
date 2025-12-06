@@ -50,7 +50,7 @@ The SUB node should:
 
 ## Implement targeted WiFi scanning
 
-Status: Not started
+Status: In progress
 
 ### Description
 
@@ -60,21 +60,21 @@ The DOM node should:
 
 * Make a reserved list of GPIO pins that corresponds to CS pins for up to 11 nodes
 * Have an array ordered by channel popularity in the US to assign to each of these nodes 
-* After waiting 5 seconds for sub nodes to boot, go through these CS pins one by one, attempting to assign a WiFi channel to the SUB node on the SPI bus.
-* If the device responds we should store it in a list of associated subs for later use
+* After waiting 5 seconds for sub nodes to boot, go through these CS pins one by one:
+  * Keep track of each SUB node's connection state (assigned channel and whether the sub has verified its channel)
+  * If the sub is not verified, attempt to assign a WiFi channel to the SUB node on the SPI bus.
+  * If the sub is verified, ask for the number of APs the sub node has seen
 
 The SUB node should:
 
-* Wait for the DOM node to assign a WiFi channel before setting up the promisious wifi interface
+* Wait for the DOM node to assign a WiFi channel before starting to wifi scan
 * Accept the channel assignement from the DOM node and give a response. After acknoledging store the channel in a variable 
 
 ## Update AP scan to be channel specific 
 
-Status: Not started
+Status: In progress
 
 ### Description
-
-MISSING REQUIREMENT: How often should we send probe request frames?
 
 Built in wifi AP scanning hops channels, we are dividing up this task to multiple SUB nodes in the hopes of not missing and beacon frames.
 

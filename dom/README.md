@@ -46,6 +46,7 @@ This is a port of the ESP32 DOM (master) node to the Raspberry Pi Pico platform.
 ```bash
 mkdir build
 cd build
+rm -rf *
 cmake ..
 make
 ```
